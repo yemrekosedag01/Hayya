@@ -1,0 +1,54 @@
+# Hayya – bulutta Android derlemesi (Expo EAS)
+# GitHub > Actions > "Android derle" > Run workflow ile elle başlatılır.
+# Gerekli gizli anahtarlar: EXPO_TOKEN, ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS
+name: Android derle
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "preview = telefona kurulacak APK, production = Play Store dosyası (AAB)"
+        required: true
+        default: preview
+        type: choice
+        options: [preview, production]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Paketleri kur
+        run: |
+          npm install
+          npx expo install react react-native expo-notifications expo-location expo-status-bar expo-constants @react-native-async-storage/async-storage react-native-safe-area-context react-native-svg
+          npx expo install --fix
+
+      - name: Expo projesini bağla (ilk seferde)
+        run: eas init --non-interactive --force
+
+      - name: İmza anahtarını hazırla
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > hayya-upload.jks
+          cat > credentials.json <<JSON
+          {"android":{"keystore":{"keystorePath":"hayya-upload.jks","keystorePassword":"$KEYSTORE_PASSWORD","keyAlias":"$KEY_ALIAS","keyPassword":"$KEYSTORE_PASSWORD"}}}
+          JSON
+
+      - name: Derle
+        env:
+          EAS_NO_VCS: "1"
+        run: eas build --platform android --profile ${{ inputs.profile }} --non-interactive --no-wait
