@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { KEYS, NAMES, prayerTimes, trNow, addDays, toDate, hm } from './prayer';
-import { HAS_EZAN_SOUND } from './config';
+import { HAS_EZAN_SOUND, HAYYA_SOUND_READY } from './config';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -20,7 +20,8 @@ const CH = {
   hatirlatma: { hayya: 'hatirlatma-hayya-v1', sistem: 'hatirlatma-v1' },
 };
 const CH_EZAN = HAS_EZAN_SOUND ? 'ezan-v2' : 'ezan-v1';
-const soundFor = (soundMode) => (soundMode === 'sistem' ? 'default' : HAYYA_SOUND);
+const effMode = (m) => (HAYYA_SOUND_READY && m !== 'sistem' ? 'hayya' : 'sistem');
+const soundFor = (soundMode) => (effMode(soundMode) === 'sistem' ? 'default' : HAYYA_SOUND);
 const DAYS_AHEAD = 14; // uygulama açılmasa da 2 hafta bildirim gelir
 
 export async function setupNotifications() {
@@ -72,7 +73,7 @@ export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya') {
             body: k === 'gunes' ? `${loc.name}: Kerahat vakti başladı.` : `${loc.name} için ${NAMES[k]} vakti. Hayya ale's-salâh!`,
             sound: mode === 'ezan' && HAS_EZAN_SOUND ? 'ezan.wav' : snd,
           },
-          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: mode === 'ezan' ? CH_EZAN : CH.vakit[soundMode === 'sistem' ? 'sistem' : 'hayya'] },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: mode === 'ezan' ? CH_EZAN : CH.vakit[effMode(soundMode)] },
         });
       }
       if (pre > 0 && k !== 'gunes') {
@@ -80,7 +81,7 @@ export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya') {
         if (preAt.getTime() > now + 5000) {
           jobs.push({
             content: { title: `${NAMES[k]} vaktine ${pre} dakika`, body: `${loc.name} · ${NAMES[k]} ${hm(t[k])}`, sound: snd },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: preAt, channelId: CH.hatirlatma[soundMode === 'sistem' ? 'sistem' : 'hayya'] },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: preAt, channelId: CH.hatirlatma[effMode(soundMode)] },
           });
         }
       }
@@ -93,7 +94,7 @@ export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya') {
 }
 
 export async function testNotification(loc, ezan = false, soundMode = 'hayya') {
-  const m = soundMode === 'sistem' ? 'sistem' : 'hayya';
+  const m = effMode(soundMode);
   await Notifications.scheduleNotificationAsync({
     content: {
       title: ezan ? 'Hayya · Ezan sesi denemesi' : 'Hayya · Deneme bildirimi',

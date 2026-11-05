@@ -8,8 +8,9 @@ import {
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { load, save } from './storage';
+import { HAYYA_SOUND_READY } from './config';
 
-export const CH_DUYURU = 'duyuru-v2';
+export const CH_DUYURU = HAYYA_SOUND_READY ? 'duyuru-v3' : 'duyuru-v2s';
 
 const TR = { ç: 'c', ğ: 'g', ı: 'i', i: 'i', ö: 'o', ş: 's', ü: 'u', â: 'a', î: 'i', û: 'u' };
 export const cityTopic = (name) =>
@@ -23,7 +24,7 @@ export async function startPush() {
   try {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(CH_DUYURU, {
-        name: 'Duyurular', importance: Notifications.AndroidImportance.HIGH, sound: 'hayya_bildirim.wav',
+        name: 'Duyurular', importance: Notifications.AndroidImportance.HIGH, sound: HAYYA_SOUND_READY ? 'hayya_bildirim.wav' : 'default',
       });
     }
     const m = getMessaging(getApp());
@@ -34,7 +35,7 @@ export async function startPush() {
       const n = msg.notification || {};
       if (!n.title && !n.body) return;
       await Notifications.scheduleNotificationAsync({
-        content: { title: n.title || 'Hayya', body: n.body || '', sound: 'hayya_bildirim.wav' },
+        content: { title: n.title || 'Hayya', body: n.body || '', sound: HAYYA_SOUND_READY ? 'hayya_bildirim.wav' : 'default' },
         trigger: Platform.OS === 'android' ? { channelId: CH_DUYURU } : null,
       });
     });

@@ -3,7 +3,7 @@ import { ScrollView, View, Text, Pressable, StyleSheet, Linking } from 'react-na
 import { C } from '../theme';
 import { KEYS, NAMES } from '../prayer';
 import { testNotification } from '../notifications';
-import { HAS_EZAN_SOUND } from '../config';
+import { HAS_EZAN_SOUND, HAYYA_SOUND_READY } from '../config';
 import { Card, u } from './ui';
 
 const MODES = [['off', 'Kapalı'], ['bildirim', 'Bildirim'], ['ezan', 'Ezan']];
@@ -58,12 +58,12 @@ export default function SettingsScreen({ loc, alarms, setAlarms, pre, setPre, so
         <Text style={[s.tip, { color: C.muted }]}>Bildirim çubuğunda bir sonraki vakte kalan süre ve günün vakitleri görünür. Kaydırıp kapatırsanız 5 dakika sonra yeniden gelir.</Text>
       </Card>
 
-      <Card title="🔔 Bildirim sesi">
+      {HAYYA_SOUND_READY && <Card title="🔔 Bildirim sesi">
         <View style={{ marginTop: 12 }}>
           <Seg items={[['hayya', 'Hayya sesi'], ['sistem', 'Telefonun sesi']]} value={soundMode} onChange={setSoundMode} />
         </View>
         <Text style={[s.tip, { color: C.muted }]}>"Bildirim" seçili vakitlerde ve hatırlatmalarda çalar. Ezan seçili vakitlerde ezan okunur.</Text>
-      </Card>
+      </Card>}
 
       <Pressable style={u.btn} onPress={() => testNotification(loc, false, soundMode)}>
         <Text style={u.btnTxt}>🔔 Deneme bildirimi gönder</Text>
