@@ -7,7 +7,14 @@ if (!FIREBASE_SERVICE_ACCOUNT) throw new Error('FIREBASE_SERVICE_ACCOUNT gizli a
 if (!TITLE || !BODY) throw new Error('Başlık ve metin boş olamaz.');
 if (!/^[a-z0-9_-]{1,60}$/.test(TOPIC || '')) throw new Error('Geçersiz hedef: ' + TOPIC + ' (ör. tum, sehir_adana)');
 
-admin.initializeApp({ credential: admin.credential.cert(JSON.parse(FIREBASE_SERVICE_ACCOUNT)) });
+// Telefonda kopyalanırken özel anahtardaki "\n" kaçışları gerçek satır sonuna dönüşebiliyor; düzelt.
+function parseKey(txt) {
+  try { return JSON.parse(txt); } catch (e) {
+    const fixed = txt.replace(/("private_key"\s*:\s*")([\s\S]*?)(")/, (m, a, b, c) => a + b.replace(/\r?\n/g, '\\n') + c);
+    return JSON.parse(fixed);
+  }
+}
+admin.initializeApp({ credential: admin.credential.cert(parseKey(FIREBASE_SERVICE_ACCOUNT.trim())) });
 
 admin.messaging().send({
   topic: TOPIC,
