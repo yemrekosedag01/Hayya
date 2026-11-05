@@ -62,6 +62,10 @@ export default function SettingsScreen({ loc, alarms, setAlarms, pre, setPre, no
         </Pressable>
       </Card>
 
+      <Pressable style={[u.btn, u.btnGhost]} onPress={() => Linking.openURL('https://instagram.com/hayya.vakit')}>
+        <Text style={[u.btnTxt, { color: C.green }]}>📷 Instagramda takip et · @hayya.vakit</Text>
+      </Pressable>
+
       {!HAS_EZAN_SOUND && (
         <Text style={[u.src, { marginTop: 12 }]}>Ezan seçeneği şimdilik yüksek öncelikli bildirim sesiyle çalar; ezan sesi sonraki sürümde eklenecek.</Text>
       )}
