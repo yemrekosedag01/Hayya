@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
-import { C } from '../theme';
+import { C, themed } from '../theme';
 import { load, save } from '../storage';
 import { trNow } from '../prayer';
 import { Card, u } from './ui';
@@ -153,7 +153,7 @@ export default function QuizScreen({ content }) {
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => ({
   bar: { height: 8, backgroundColor: C.line, borderRadius: 99, overflow: 'hidden', marginTop: 6, marginBottom: 14 },
   fill: { height: '100%', backgroundColor: C.gold },
   q: { fontSize: 20, fontWeight: '800', lineHeight: 28, color: C.ink, marginBottom: 14 },
@@ -165,4 +165,4 @@ const s = StyleSheet.create({
   big: { fontSize: 56, fontWeight: '900', color: C.green },
   limT: { fontSize: 18, fontWeight: '800', color: C.ink, marginTop: 6, marginBottom: 4 },
   clock: { fontSize: 38, fontWeight: '900', color: C.green, marginTop: 6, fontVariant: ['tabular-nums'] },
-});
+}));

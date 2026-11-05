@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
-import { C } from '../theme';
+import { C, themed } from '../theme';
 import { Card, u } from './ui';
 
 export default function LessonsScreen({ content, go }) {
@@ -50,7 +50,7 @@ export default function LessonsScreen({ content, go }) {
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => ({
   back: { color: C.green, fontWeight: '900', fontSize: 15, paddingVertical: 6 },
   item: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 18, marginBottom: 10 },
   icon: { width: 42, height: 42, borderRadius: 12, backgroundColor: C.goldSoft, alignItems: 'center', justifyContent: 'center' },
@@ -59,7 +59,7 @@ const s = StyleSheet.create({
   arrow: { fontSize: 24, color: C.muted },
   subh: { fontSize: 14, fontWeight: '900', color: C.green, marginTop: 10, marginBottom: 2 },
   step: { flexDirection: 'row', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line },
-  num: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
+  num: { width: 28, height: 28, borderRadius: 14, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
   numT: { color: '#fff', fontWeight: '900', fontSize: 13 },
   stepT: { flex: 1, fontSize: 15, lineHeight: 21, fontWeight: '600', color: C.ink },
-});
+}));

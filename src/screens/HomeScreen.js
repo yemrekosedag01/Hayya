@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
-import { C } from '../theme';
+import { C, themed } from '../theme';
 import { KEYS, NAMES, hm, nextPrayer, trNow, vakitSlot } from '../prayer';
 import { Card, u } from './ui';
 import { pickForSlot } from '../content';
@@ -46,7 +46,7 @@ export default function HomeScreen({ loc, content, go }) {
       <View style={s.times}>
         {KEYS.map((k) => (
           <View key={k} style={[s.t, k === np.current && s.tCur]}>
-            <Text style={[s.tName, k === np.current && { color: '#8a6a1f' }]}>{NAMES[k]}</Text>
+            <Text style={[s.tName, k === np.current && { color: C.goldInk }]}>{NAMES[k]}</Text>
             <Text style={s.tVal}>{hm(np.today[k])}</Text>
           </View>
         ))}
@@ -85,8 +85,8 @@ export default function HomeScreen({ loc, content, go }) {
   );
 }
 
-const s = StyleSheet.create({
-  hero: { backgroundColor: C.green, borderRadius: 24, padding: 20 },
+const s = themed(() => ({
+  hero: { backgroundColor: C.primary, borderRadius: 24, padding: 20 },
   lbl: { color: '#fff', opacity: 0.85, fontSize: 13, fontWeight: '700' },
   next: { color: '#fff', fontSize: 28, fontWeight: '900', marginTop: 2 },
   count: { color: '#fff', fontSize: 44, fontWeight: '900', letterSpacing: 1, fontVariant: ['tabular-nums'], marginVertical: 2 },
@@ -100,4 +100,4 @@ const s = StyleSheet.create({
   mini: { flex: 1, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 18, padding: 14 },
   miniT: { fontSize: 15, fontWeight: '800', marginTop: 6, color: C.ink },
   miniS: { fontSize: 12, color: C.muted, fontWeight: '600' },
-});
+}));

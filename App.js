@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, AppState, Image } from 'react-native';
+import { View, Text, Pressable, AppState, Image, BackHandler, useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { C } from './src/theme';
+import { C, themed, setTheme as applyTheme } from './src/theme';
 import { CITIES } from './src/prayer';
 import { load, save } from './src/storage';
 import { loadContent } from './src/content';
@@ -14,14 +14,27 @@ import TimesScreen from './src/screens/TimesScreen';
 import LessonsScreen from './src/screens/LessonsScreen';
 import QuizScreen from './src/screens/QuizScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import MenuScreen from './src/screens/MenuScreen';
+import ZikirScreen from './src/screens/ZikirScreen';
+import QiblaScreen from './src/screens/QiblaScreen';
+import EsmaScreen from './src/screens/EsmaScreen';
+import DiniGunlerScreen from './src/screens/DiniGunlerScreen';
+import HicriScreen from './src/screens/HicriScreen';
+import AboutScreen from './src/screens/AboutScreen';
+import { SubHeader } from './src/screens/ui';
 
 const TABS = [
   { key: 'ana', icon: '🕌', label: 'Ana Sayfa' },
   { key: 'vakitler', icon: '🕰️', label: 'Vakitler' },
   { key: 'dersler', icon: '📚', label: 'Dersler' },
   { key: 'quiz', icon: '🎯', label: 'Quiz' },
-  { key: 'ayarlar', icon: '⚙️', label: 'Ayarlar' },
+  { key: 'menu', icon: '☰', label: '' },
 ];
+
+const SUB_TITLES = {
+  zikir: 'Zikirmatik', kible: 'Kıble Pusulası', esma: 'Esmaül Hüsna', dini: 'Dini Günler',
+  hicri: 'Hicri Takvim', ayarlar: 'Ayarlar', hakkinda: 'Hakkında ve Gizlilik',
+};
 
 const DEFAULT_ALARMS = { imsak: 'ezan', gunes: 'off', ogle: 'ezan', ikindi: 'ezan', aksam: 'ezan', yatsi: 'ezan' };
 
@@ -35,6 +48,13 @@ export default function App() {
   const [ongoing, setOngoing] = useState(true);
   const [content, setContent] = useState({ dersler: [], sorular: [], ayetler: [], hadisler: [] });
   const [notifOk, setNotifOk] = useState(true);
+  const [sub, setSub] = useState(null); // menü içindeki alt sayfa
+  const [theme, setTheme] = useState('auto');
+  const [vibNotif, setVibNotif] = useState(true);
+  const [vibZikir, setVibZikir] = useState(true);
+  const sys = useColorScheme();
+  const dark = theme === 'dark' || (theme === 'auto' && sys === 'dark');
+  applyTheme(dark ? 'dark' : 'light'); // çizimden önce renkleri ayarla
   const appState = useRef(AppState.currentState);
 
   // İlk açılış: kayıtlı ayarlar + içerik
@@ -45,6 +65,9 @@ export default function App() {
       setPre(await load('pre', 15));
       setSoundMode(await load('soundMode', 'hayya'));
       setOngoing(await load('ongoing', true));
+      setTheme(await load('theme', 'auto'));
+      setVibNotif(await load('vibNotif', true));
+      setVibZikir(await load('vibZikir', true));
       setContent(await loadContent(setContent));
       setNotifOk(await setupNotifications());
       setReady(true);
@@ -56,8 +79,21 @@ export default function App() {
   useEffect(() => {
     if (!ready) return;
     save('loc', loc); save('alarms', alarms); save('pre', pre); save('soundMode', soundMode);
-    if (notifOk) scheduleAll(loc, alarms, pre, soundMode);
-  }, [ready, loc, alarms, pre, soundMode, notifOk]);
+    save('vibNotif', vibNotif);
+    if (notifOk) scheduleAll(loc, alarms, pre, soundMode, vibNotif);
+  }, [ready, loc, alarms, pre, soundMode, vibNotif, notifOk]);
+
+  useEffect(() => { if (ready) { save('theme', theme); save('vibZikir', vibZikir); } }, [ready, theme, vibZikir]);
+
+  // Android geri tuşu: menü alt sayfasından menüye, diğer sekmelerden ana sayfaya
+  useEffect(() => {
+    const h = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (tab === 'menu' && sub) { setSub(null); return true; }
+      if (tab !== 'ana') { setTab('ana'); return true; }
+      return false;
+    });
+    return () => h.remove();
+  }, [tab, sub]);
 
   useEffect(() => { if (ready) setPushCity(loc.name); }, [ready, loc.name]);
 
@@ -72,22 +108,40 @@ export default function App() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       if (appState.current.match(/inactive|background/) && next === 'active' && ready && notifOk) {
-        scheduleAll(loc, alarms, pre, soundMode);
+        scheduleAll(loc, alarms, pre, soundMode, vibNotif);
         applyOngoing(ongoing, loc);
       }
       appState.current = next;
     });
     return () => sub.remove();
-  }, [ready, loc, alarms, pre, soundMode, ongoing, notifOk]);
+  }, [ready, loc, alarms, pre, soundMode, vibNotif, ongoing, notifOk]);
 
   const screen = {
     ana: <HomeScreen loc={loc} content={content} go={setTab} />,
     vakitler: <TimesScreen loc={loc} setLoc={setLoc} />,
     dersler: <LessonsScreen content={content} go={setTab} />,
     quiz: <QuizScreen content={content} />,
-    ayarlar: (
-      <SettingsScreen loc={loc} alarms={alarms} setAlarms={setAlarms} pre={pre} setPre={setPre}
-        soundMode={soundMode} setSoundMode={setSoundMode} ongoing={ongoing} setOngoing={setOngoing}
+    menu: sub ? (
+      <View style={{ flex: 1 }}>
+        <SubHeader title={SUB_TITLES[sub]} onBack={() => setSub(null)} />
+        <View style={{ flex: 1 }}>
+          {{
+            zikir: <ZikirScreen vibZikir={vibZikir} />,
+            kible: <QiblaScreen loc={loc} />,
+            esma: <EsmaScreen />,
+            dini: <DiniGunlerScreen />,
+            hicri: <HicriScreen />,
+            hakkinda: <AboutScreen />,
+            ayarlar: (
+              <SettingsScreen loc={loc} theme={theme} setTheme={setTheme} vibNotif={vibNotif} setVibNotif={setVibNotif}
+                vibZikir={vibZikir} setVibZikir={setVibZikir} soundMode={soundMode} setSoundMode={setSoundMode}
+                ongoing={ongoing} setOngoing={setOngoing} />
+            ),
+          }[sub]}
+        </View>
+      </View>
+    ) : (
+      <MenuScreen open={setSub} alarms={alarms} setAlarms={setAlarms} pre={pre} setPre={setPre}
         notifOk={notifOk} retryNotif={async () => setNotifOk(await setupNotifications())} />
     ),
   }[tab];
@@ -95,7 +149,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={s.root} edges={['top', 'left', 'right']}>
-        <StatusBar style="dark" />
+        <StatusBar style={dark ? 'light' : 'dark'} />
         <View style={s.header}>
           <Image source={require('./assets/icon.png')} style={s.logo} />
           <View style={{ flex: 1 }}>
@@ -110,9 +164,16 @@ export default function App() {
         <SafeAreaView edges={['bottom']} style={s.tabs}>
           <View style={s.tabRow}>
             {TABS.map((t) => (
-              <Pressable key={t.key} style={s.tab} onPress={() => setTab(t.key)}>
-                <Text style={[s.tabIcon, tab !== t.key && { opacity: 0.45 }]}>{t.icon}</Text>
-                <Text style={[s.tabLbl, tab === t.key && { color: C.green }]}>{t.label}</Text>
+              <Pressable key={t.key} style={s.tab} accessibilityLabel={t.label || 'Menü'}
+                onPress={() => { if (t.key === 'menu' && tab === 'menu') setSub(null); setTab(t.key); }}>
+                {t.key === 'menu' ? (
+                  <Text style={[s.menuIcon, { color: tab === 'menu' ? C.green : C.muted }]}>☰</Text>
+                ) : (
+                  <>
+                    <Text style={[s.tabIcon, tab !== t.key && { opacity: 0.45 }]}>{t.icon}</Text>
+                    <Text style={[s.tabLbl, tab === t.key && { color: C.green }]}>{t.label}</Text>
+                  </>
+                )}
               </Pressable>
             ))}
           </View>
@@ -122,7 +183,7 @@ export default function App() {
   );
 }
 
-const s = StyleSheet.create({
+const s = themed(() => ({
   root: { flex: 1, backgroundColor: C.bg },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, gap: 10 },
   logo: { width: 40, height: 40, borderRadius: 12 },
@@ -132,7 +193,8 @@ const s = StyleSheet.create({
   chipTxt: { fontSize: 13, fontWeight: '800', color: C.green },
   tabs: { backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.line },
   tabRow: { flexDirection: 'row', paddingVertical: 8 },
-  tab: { flex: 1, alignItems: 'center' },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  menuIcon: { fontSize: 28, fontWeight: '900', lineHeight: 32 },
   tabIcon: { fontSize: 21 },
   tabLbl: { fontSize: 11, fontWeight: '800', color: C.muted, marginTop: 2 },
-});
+}));

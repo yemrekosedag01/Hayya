@@ -6,7 +6,7 @@ const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const want = [
   'react', 'react-native', 'expo-notifications', 'expo-location', 'expo-status-bar',
   'expo-constants', '@react-native-async-storage/async-storage',
-  'react-native-safe-area-context', 'react-native-svg',
+  'react-native-safe-area-context', 'react-native-svg', 'expo-system-ui',
 ];
 pkg.dependencies = { expo: '~' + expoVersion };
 for (const name of want) {
