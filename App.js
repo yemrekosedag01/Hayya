@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, AppState } from 'react-native';
+import { View, Text, Pressable, StyleSheet, AppState, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { C } from './src/theme';
@@ -79,7 +79,7 @@ export default function App() {
       <SafeAreaView style={s.root} edges={['top', 'left', 'right']}>
         <StatusBar style="dark" />
         <View style={s.header}>
-          <View style={s.logo}><Text style={s.logoTxt}>ح</Text></View>
+          <Image source={require('./assets/icon.png')} style={s.logo} />
           <View style={{ flex: 1 }}>
             <Text style={s.brand}>Hayya</Text>
             <Text style={s.brandSub}>Ezan Vakti ve Dini Bilgiler</Text>
@@ -107,8 +107,7 @@ export default function App() {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, gap: 10 },
-  logo: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
-  logoTxt: { color: C.goldSoft, fontSize: 22, fontWeight: '800' },
+  logo: { width: 40, height: 40, borderRadius: 12 },
   brand: { fontSize: 22, fontWeight: '900', color: C.green },
   brandSub: { fontSize: 11, color: C.muted, fontWeight: '700' },
   chip: { backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
