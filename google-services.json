@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "539190258871",
+    "project_id": "hayya-3a147",
+    "storage_bucket": "hayya-3a147.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:539190258871:android:e3728c53d180a111e83132",
+        "android_client_info": {
+          "package_name": "com.kosedag.hayya"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8AUA_WacOyR_eqWGCGeKSN6SfCifZKqo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

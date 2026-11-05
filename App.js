@@ -7,6 +7,7 @@ import { CITIES } from './src/prayer';
 import { load, save } from './src/storage';
 import { loadContent } from './src/content';
 import { setupNotifications, scheduleAll } from './src/notifications';
+import { startPush, setPushCity } from './src/push';
 import HomeScreen from './src/screens/HomeScreen';
 import TimesScreen from './src/screens/TimesScreen';
 import LessonsScreen from './src/screens/LessonsScreen';
@@ -42,6 +43,7 @@ export default function App() {
       setContent(await loadContent(setContent));
       setNotifOk(await setupNotifications());
       setReady(true);
+      startPush();
     })();
   }, []);
 
@@ -51,6 +53,8 @@ export default function App() {
     save('loc', loc); save('alarms', alarms); save('pre', pre);
     if (notifOk) scheduleAll(loc, alarms, pre);
   }, [ready, loc, alarms, pre, notifOk]);
+
+  useEffect(() => { if (ready) setPushCity(loc.name); }, [ready, loc.name]);
 
   // Uygulamaya her dönüldüğünde bildirimleri tazele (7 günlük pencere ilerlesin)
   useEffect(() => {
