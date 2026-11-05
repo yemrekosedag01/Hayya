@@ -30,9 +30,10 @@ jobs:
 
       - name: Paketleri kur
         run: |
-          npm install
-          npx expo install react react-native expo-notifications expo-location expo-status-bar expo-constants @react-native-async-storage/async-storage react-native-safe-area-context react-native-svg
-          npx expo install --fix
+          npm install --no-audit --no-fund --legacy-peer-deps
+          node scripts/pin-deps.js
+          rm -rf node_modules package-lock.json
+          npm install --no-audit --no-fund
 
       - name: Expo projesini bağla (ilk seferde)
         run: eas init --non-interactive --force
