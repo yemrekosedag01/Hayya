@@ -22,8 +22,10 @@ jobs:
           rm -rf node_modules package-lock.json
           npm install --no-audit --no-fund
           npm ls @react-native-firebase/app @react-native-firebase/messaging react-native expo || true
+      - name: Otomatik bağlanan modüller
+        run: npx expo-modules-autolinking resolve --platform android | grep -i -E 'hayya|packageName' | head -60 || true
       - name: Prebuild
         run: npx expo prebuild --platform android --no-install
       - name: Gradle
-        run: cd android && set -o pipefail && ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tail -200
+        run: cd android && set -o pipefail && ./gradlew assembleRelease --no-daemon --stacktrace > gradle.log 2>&1; r=$?; grep -E 'hayya|^e: |What went wrong|BUILD' gradle.log | head -80; tail -60 gradle.log; exit $r
         shell: bash
