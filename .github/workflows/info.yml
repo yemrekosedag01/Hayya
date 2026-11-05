@@ -1,0 +1,24 @@
+name: Modül kontrolü
+on: workflow_dispatch
+jobs:
+  info:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Kontrol
+        run: |
+          npm install --no-audit --no-fund --legacy-peer-deps >/dev/null 2>&1
+          node scripts/pin-deps.js >/dev/null
+          rm -rf node_modules package-lock.json
+          npm install --no-audit --no-fund >/dev/null 2>&1
+          ls modules/hayya-ongoing modules/hayya-ongoing/android
+          echo "---- search"
+          npx expo-modules-autolinking search 2>&1 | head -c 3000
+          echo
+          echo "---- resolve"
+          npx expo-modules-autolinking resolve --platform android 2>&1 | grep -n -i -B2 -A8 hayya | head -60
+          echo "---- verify"
+          npx expo-modules-autolinking verify --verbose 2>&1 | grep -i -A3 hayya | head
