@@ -19,7 +19,11 @@ export default function QuizScreen({ content }) {
   const [best, setBest] = useState(0);
 
   const start = () => {
-    setQs(shuffle(content.sorular).slice(0, PER_ROUND));
+    // Soruları ve her sorunun şıklarını karıştır (doğru cevap hep aynı harfte olmasın)
+    setQs(shuffle(content.sorular).slice(0, PER_ROUND).map((q) => {
+      const order = shuffle([0, 1, 2, 3]);
+      return { ...q, opts: order.map((i) => q.opts[i]), a: order.indexOf(q.a) };
+    }));
     setI(0); setScore(0); setPicked(null);
   };
   useEffect(() => { start(); load('best', 0).then(setBest); }, [content.sorular]);
