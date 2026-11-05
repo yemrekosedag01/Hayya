@@ -60,7 +60,7 @@ export async function scheduleAll(loc, alarms, pre) {
           content: {
             title: k === 'gunes' ? `Güneş doğdu · ${hm(t[k])}` : `${NAMES[k]} vakti girdi · ${hm(t[k])}`,
             body: k === 'gunes' ? `${loc.name}: Kerahat vakti başladı.` : `${loc.name} için ${NAMES[k]} vakti. Hayya ale's-salâh!`,
-            sound: 'default',
+            sound: mode === 'ezan' && HAS_EZAN_SOUND ? 'ezan.wav' : 'default',
           },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: mode === 'ezan' ? CH_EZAN : CH_VAKIT },
         });
