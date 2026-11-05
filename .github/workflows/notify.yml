@@ -25,6 +25,10 @@ jobs:
       - name: Firebase kütüphanesi
         working-directory: scripts
         run: npm init -y >/dev/null && npm install --no-audit --no-fund firebase-admin@13
+      - name: Anahtar kontrolü
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/check-key.js
       - name: Gönder
         env:
           TITLE: ${{ inputs.title }}
