@@ -22,11 +22,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-save --no-audit --no-fund firebase-admin@13
+      - name: Firebase kütüphanesi
+        working-directory: scripts
+        run: npm init -y >/dev/null && npm install --no-audit --no-fund firebase-admin@13
       - name: Gönder
         env:
           TITLE: ${{ inputs.title }}
           BODY: ${{ inputs.body }}
           TOPIC: ${{ inputs.topic }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: node scripts/send-push.js
+        working-directory: scripts
+        run: node send-push.js
