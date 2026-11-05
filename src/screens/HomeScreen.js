@@ -3,6 +3,7 @@ import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { C } from '../theme';
 import { KEYS, NAMES, hm, nextPrayer, trNow, vakitSlot } from '../prayer';
 import { Card, u } from './ui';
+import { pickForSlot } from '../content';
 
 const dayIndex = () => {
   const n = trNow();
@@ -29,8 +30,8 @@ export default function HomeScreen({ loc, content, go }) {
   const count = [Math.floor(left / 3600), Math.floor((left % 3600) / 60), left % 60].map((x) => String(x).padStart(2, '0')).join(':');
   const di = dayIndex();
   const slot = vakitSlot(loc); // her vakit (günde 5 kez) değişir
-  const ayet = content.ayetler.length ? content.ayetler[slot % content.ayetler.length] : null;
-  const hadis = content.hadisler.length ? content.hadisler[slot % content.hadisler.length] : null;
+  const ayet = pickForSlot(content.ayetler, slot); // vakte uygun ayet
+  const hadis = pickForSlot(content.hadisler, slot);
   const ders = content.dersler.length ? content.dersler[di % content.dersler.length] : null;
 
   return (

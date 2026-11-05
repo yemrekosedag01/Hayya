@@ -98,6 +98,10 @@ async function fetchSheet(name) {
 
 const LETTERS = { a: 0, b: 1, c: 2, d: 3 };
 
+// Tablodaki "Vakit" sütunu: İmsak, Öğle, İkindi, Akşam, Yatsı (boş = genel)
+const VAKIT_SLOT = { imsak: 0, sabah: 0, 'öğle': 1, ogle: 1, ikindi: 2, 'akşam': 3, aksam: 3, 'yatsı': 4, yatsi: 4 };
+const vakitOf = (v) => { const k = norm(v); return k in VAKIT_SLOT ? VAKIT_SLOT[k] : -1; };
+
 export function buildContent({ dersler, adimlar, sorular, ayetler, hadisler }) {
   const lessons = dersler
     .filter((d) => approved(d['onaylı']) && d['başlık'])
@@ -119,8 +123,8 @@ export function buildContent({ dersler, adimlar, sorular, ayetler, hadisler }) {
       why: s['açıklama'] || '', cat: s['kategori'] || '',
     }))
     .filter((s) => s.opts.every((o) => o));
-  const verses = ayetler.filter((a) => approved(a['onaylı']) && a['meal']).map((a) => ({ text: a['meal'], src: a['kaynak'] }));
-  const hadith = hadisler.filter((h) => approved(h['onaylı']) && h['hadis']).map((h) => ({ text: h['hadis'], src: h['kaynak'] }));
+  const verses = ayetler.filter((a) => approved(a['onaylı']) && a['meal']).map((a) => ({ text: a['meal'], src: a['kaynak'], v: vakitOf(a['vakit']) }));
+  const hadith = hadisler.filter((h) => approved(h['onaylı']) && h['hadis']).map((h) => ({ text: h['hadis'], src: h['kaynak'], v: vakitOf(h['vakit']) }));
   return { dersler: lessons, sorular: questions, ayetler: verses, hadisler: hadith };
 }
 
@@ -141,4 +145,22 @@ export async function loadContent(onUpdate) {
     }
   })();
   return cached || { dersler: [], sorular: [], ayetler: [], hadisler: [] };
+}
+
+/**
+ * Vakte uygun içerik seçimi. slot: vakitSlot() sayacı (günde 5 artar).
+ * Her vaktin havuzu = o vakte etiketli satırlar + genel satırların o vakte düşen payı.
+ */
+export function pickForSlot(list, slot) {
+  if (!list.length) return null;
+  const s = ((slot % 5) + 5) % 5;
+  const day = Math.floor(slot / 5);
+  const pool = [];
+  let g = 0;
+  for (const item of list) {
+    if (item.v === s) pool.push(item);
+    else if (item.v === undefined || item.v < 0) { if (g % 5 === s) pool.push(item); g++; }
+  }
+  const src = pool.length ? pool : list;
+  return src[((day % src.length) + src.length) % src.length];
 }
