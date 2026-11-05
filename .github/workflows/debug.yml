@@ -1,0 +1,29 @@
+# Hata ayıklama: Android'i GitHub sunucusunda derler, tüm kayıtları gösterir.
+name: Hata ayıklama derlemesi
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Paketleri kur
+        run: |
+          npm install --no-audit --no-fund --legacy-peer-deps
+          node scripts/pin-deps.js
+          rm -rf node_modules package-lock.json
+          npm install --no-audit --no-fund
+          npm ls @react-native-firebase/app @react-native-firebase/messaging react-native expo || true
+      - name: Prebuild
+        run: npx expo prebuild --platform android --no-install
+      - name: Gradle
+        run: cd android && set -o pipefail && ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tail -200
+        shell: bash
