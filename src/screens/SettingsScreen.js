@@ -21,7 +21,7 @@ function Seg({ items, value, onChange }) {
   );
 }
 
-export default function SettingsScreen({ loc, alarms, setAlarms, pre, setPre, soundMode, setSoundMode, notifOk, retryNotif }) {
+export default function SettingsScreen({ loc, alarms, setAlarms, pre, setPre, soundMode, setSoundMode, ongoing, setOngoing, notifOk, retryNotif }) {
   return (
     <ScrollView contentContainerStyle={u.page}>
       <Text style={u.h2}>Ezan Uyarıları</Text>
@@ -49,6 +49,13 @@ export default function SettingsScreen({ loc, alarms, setAlarms, pre, setPre, so
         <View style={{ marginTop: 12 }}>
           <Seg items={PRE.map((v) => [v, v ? `${v} dk` : 'Yok'])} value={pre} onChange={setPre} />
         </View>
+      </Card>
+
+      <Card title="📌 Kalıcı vakit göstergesi">
+        <View style={{ marginTop: 12 }}>
+          <Seg items={[[true, 'Açık'], [false, 'Kapalı']]} value={ongoing} onChange={setOngoing} />
+        </View>
+        <Text style={[s.tip, { color: C.muted }]}>Bildirim çubuğunda bir sonraki vakte kalan süre ve günün vakitleri görünür. Kaydırıp kapatırsanız 5 dakika sonra yeniden gelir.</Text>
       </Card>
 
       <Card title="🔔 Bildirim sesi">

@@ -1,0 +1,6 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["com.kosedag.hayya.ongoing.HayyaOngoingModule"]
+  }
+}

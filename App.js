@@ -8,6 +8,7 @@ import { load, save } from './src/storage';
 import { loadContent } from './src/content';
 import { setupNotifications, scheduleAll } from './src/notifications';
 import { startPush, setPushCity } from './src/push';
+import { applyOngoing } from './src/ongoing';
 import HomeScreen from './src/screens/HomeScreen';
 import TimesScreen from './src/screens/TimesScreen';
 import LessonsScreen from './src/screens/LessonsScreen';
@@ -31,6 +32,7 @@ export default function App() {
   const [alarms, setAlarms] = useState(DEFAULT_ALARMS);
   const [pre, setPre] = useState(15);
   const [soundMode, setSoundMode] = useState('hayya');
+  const [ongoing, setOngoing] = useState(true);
   const [content, setContent] = useState({ dersler: [], sorular: [], ayetler: [], hadisler: [] });
   const [notifOk, setNotifOk] = useState(true);
   const appState = useRef(AppState.currentState);
@@ -42,6 +44,7 @@ export default function App() {
       setAlarms({ ...DEFAULT_ALARMS, ...(await load('alarms', {})) });
       setPre(await load('pre', 15));
       setSoundMode(await load('soundMode', 'hayya'));
+      setOngoing(await load('ongoing', true));
       setContent(await loadContent(setContent));
       setNotifOk(await setupNotifications());
       setReady(true);
@@ -58,16 +61,24 @@ export default function App() {
 
   useEffect(() => { if (ready) setPushCity(loc.name); }, [ready, loc.name]);
 
+  // Bildirim çubuğundaki kalıcı vakit göstergesi
+  useEffect(() => {
+    if (!ready) return;
+    save('ongoing', ongoing);
+    if (notifOk) applyOngoing(ongoing, loc);
+  }, [ready, ongoing, loc, notifOk]);
+
   // Uygulamaya her dönüldüğünde bildirimleri tazele (7 günlük pencere ilerlesin)
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       if (appState.current.match(/inactive|background/) && next === 'active' && ready && notifOk) {
         scheduleAll(loc, alarms, pre, soundMode);
+        applyOngoing(ongoing, loc);
       }
       appState.current = next;
     });
     return () => sub.remove();
-  }, [ready, loc, alarms, pre, soundMode, notifOk]);
+  }, [ready, loc, alarms, pre, soundMode, ongoing, notifOk]);
 
   const screen = {
     ana: <HomeScreen loc={loc} content={content} go={setTab} />,
@@ -76,7 +87,7 @@ export default function App() {
     quiz: <QuizScreen content={content} />,
     ayarlar: (
       <SettingsScreen loc={loc} alarms={alarms} setAlarms={setAlarms} pre={pre} setPre={setPre}
-        soundMode={soundMode} setSoundMode={setSoundMode}
+        soundMode={soundMode} setSoundMode={setSoundMode} ongoing={ongoing} setOngoing={setOngoing}
         notifOk={notifOk} retryNotif={async () => setNotifOk(await setupNotifications())} />
     ),
   }[tab];
