@@ -30,6 +30,7 @@ export default function App() {
   const [loc, setLoc] = useState(CITIES[0]);
   const [alarms, setAlarms] = useState(DEFAULT_ALARMS);
   const [pre, setPre] = useState(15);
+  const [soundMode, setSoundMode] = useState('hayya');
   const [content, setContent] = useState({ dersler: [], sorular: [], ayetler: [], hadisler: [] });
   const [notifOk, setNotifOk] = useState(true);
   const appState = useRef(AppState.currentState);
@@ -40,6 +41,7 @@ export default function App() {
       setLoc(await load('loc', CITIES[0]));
       setAlarms({ ...DEFAULT_ALARMS, ...(await load('alarms', {})) });
       setPre(await load('pre', 15));
+      setSoundMode(await load('soundMode', 'hayya'));
       setContent(await loadContent(setContent));
       setNotifOk(await setupNotifications());
       setReady(true);
@@ -50,9 +52,9 @@ export default function App() {
   // Konum / ayar değişince bildirimleri yeniden kur
   useEffect(() => {
     if (!ready) return;
-    save('loc', loc); save('alarms', alarms); save('pre', pre);
-    if (notifOk) scheduleAll(loc, alarms, pre);
-  }, [ready, loc, alarms, pre, notifOk]);
+    save('loc', loc); save('alarms', alarms); save('pre', pre); save('soundMode', soundMode);
+    if (notifOk) scheduleAll(loc, alarms, pre, soundMode);
+  }, [ready, loc, alarms, pre, soundMode, notifOk]);
 
   useEffect(() => { if (ready) setPushCity(loc.name); }, [ready, loc.name]);
 
@@ -60,12 +62,12 @@ export default function App() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       if (appState.current.match(/inactive|background/) && next === 'active' && ready && notifOk) {
-        scheduleAll(loc, alarms, pre);
+        scheduleAll(loc, alarms, pre, soundMode);
       }
       appState.current = next;
     });
     return () => sub.remove();
-  }, [ready, loc, alarms, pre, notifOk]);
+  }, [ready, loc, alarms, pre, soundMode, notifOk]);
 
   const screen = {
     ana: <HomeScreen loc={loc} content={content} go={setTab} />,
@@ -74,6 +76,7 @@ export default function App() {
     quiz: <QuizScreen content={content} />,
     ayarlar: (
       <SettingsScreen loc={loc} alarms={alarms} setAlarms={setAlarms} pre={pre} setPre={setPre}
+        soundMode={soundMode} setSoundMode={setSoundMode}
         notifOk={notifOk} retryNotif={async () => setNotifOk(await setupNotifications())} />
     ),
   }[tab];

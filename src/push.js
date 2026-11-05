@@ -9,7 +9,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { load, save } from './storage';
 
-export const CH_DUYURU = 'duyuru-v1';
+export const CH_DUYURU = 'duyuru-v2';
 
 const TR = { ç: 'c', ğ: 'g', ı: 'i', i: 'i', ö: 'o', ş: 's', ü: 'u', â: 'a', î: 'i', û: 'u' };
 export const cityTopic = (name) =>
@@ -23,7 +23,7 @@ export async function startPush() {
   try {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(CH_DUYURU, {
-        name: 'Duyurular', importance: Notifications.AndroidImportance.HIGH, sound: 'default',
+        name: 'Duyurular', importance: Notifications.AndroidImportance.HIGH, sound: 'hayya_bildirim.wav',
       });
     }
     const m = getMessaging(getApp());
@@ -34,7 +34,7 @@ export async function startPush() {
       const n = msg.notification || {};
       if (!n.title && !n.body) return;
       await Notifications.scheduleNotificationAsync({
-        content: { title: n.title || 'Hayya', body: n.body || '', sound: 'default' },
+        content: { title: n.title || 'Hayya', body: n.body || '', sound: 'hayya_bildirim.wav' },
         trigger: Platform.OS === 'android' ? { channelId: CH_DUYURU } : null,
       });
     });

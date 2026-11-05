@@ -21,7 +21,7 @@ function Seg({ items, value, onChange }) {
   );
 }
 
-export default function SettingsScreen({ loc, alarms, setAlarms, pre, setPre, notifOk, retryNotif }) {
+export default function SettingsScreen({ loc, alarms, setAlarms, pre, setPre, soundMode, setSoundMode, notifOk, retryNotif }) {
   return (
     <ScrollView contentContainerStyle={u.page}>
       <Text style={u.h2}>Ezan Uyarıları</Text>
@@ -51,7 +51,14 @@ export default function SettingsScreen({ loc, alarms, setAlarms, pre, setPre, no
         </View>
       </Card>
 
-      <Pressable style={u.btn} onPress={() => testNotification(loc)}>
+      <Card title="🔔 Bildirim sesi">
+        <View style={{ marginTop: 12 }}>
+          <Seg items={[['hayya', 'Hayya sesi'], ['sistem', 'Telefonun sesi']]} value={soundMode} onChange={setSoundMode} />
+        </View>
+        <Text style={[s.tip, { color: C.muted }]}>"Bildirim" seçili vakitlerde ve hatırlatmalarda çalar. Ezan seçili vakitlerde ezan okunur.</Text>
+      </Card>
+
+      <Pressable style={u.btn} onPress={() => testNotification(loc, false, soundMode)}>
         <Text style={u.btnTxt}>🔔 Deneme bildirimi gönder</Text>
       </Pressable>
       {HAS_EZAN_SOUND && (

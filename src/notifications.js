@@ -13,24 +13,33 @@ Notifications.setNotificationHandler({
   }),
 });
 
-const CH_VAKIT = 'vakit-v1';
+// Android'de bir kanalın sesi sonradan değiştirilemez; bu yüzden her ses için ayrı kanal var.
+const HAYYA_SOUND = 'hayya_bildirim.wav';
+const CH = {
+  vakit: { hayya: 'vakit-hayya-v1', sistem: 'vakit-v1' },
+  hatirlatma: { hayya: 'hatirlatma-hayya-v1', sistem: 'hatirlatma-v1' },
+};
 const CH_EZAN = HAS_EZAN_SOUND ? 'ezan-v2' : 'ezan-v1';
-const CH_HATIRLATMA = 'hatirlatma-v1';
+const soundFor = (soundMode) => (soundMode === 'sistem' ? 'default' : HAYYA_SOUND);
 const DAYS_AHEAD = 14; // uygulama açılmasa da 2 hafta bildirim gelir
 
 export async function setupNotifications() {
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync(CH_VAKIT, {
-      name: 'Vakit bildirimi', importance: Notifications.AndroidImportance.HIGH, sound: 'default',
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-    });
+    for (const mode of ['hayya', 'sistem']) {
+      const sound = mode === 'hayya' ? HAYYA_SOUND : 'default';
+      const tag = mode === 'hayya' ? ' (Hayya sesi)' : ' (telefon sesi)';
+      await Notifications.setNotificationChannelAsync(CH.vakit[mode], {
+        name: 'Vakit bildirimi' + tag, importance: Notifications.AndroidImportance.HIGH, sound,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      });
+      await Notifications.setNotificationChannelAsync(CH.hatirlatma[mode], {
+        name: 'Vakit öncesi hatırlatma' + tag, importance: Notifications.AndroidImportance.DEFAULT, sound,
+      });
+    }
     await Notifications.setNotificationChannelAsync(CH_EZAN, {
       name: 'Ezan', importance: Notifications.AndroidImportance.MAX,
       sound: HAS_EZAN_SOUND ? 'ezan.wav' : 'default',
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-    });
-    await Notifications.setNotificationChannelAsync(CH_HATIRLATMA, {
-      name: 'Vakit öncesi hatırlatma', importance: Notifications.AndroidImportance.DEFAULT, sound: 'default',
     });
   }
   const cur = await Notifications.getPermissionsAsync();
@@ -41,9 +50,10 @@ export async function setupNotifications() {
 
 /**
  * Önümüzdeki 14 günün vakit bildirimlerini yeniden kurar.
- * alarms: { imsak: 'off' | 'bildirim' | 'ezan', ... }, pre: dakika (0 = yok)
+ * alarms: { imsak: 'off' | 'bildirim' | 'ezan', ... }, pre: dakika (0 = yok), soundMode: 'hayya' | 'sistem'
  */
-export async function scheduleAll(loc, alarms, pre) {
+export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya') {
+  const snd = soundFor(soundMode);
   await Notifications.cancelAllScheduledNotificationsAsync();
   const now = Date.now();
   const today = trNow();
@@ -60,17 +70,17 @@ export async function scheduleAll(loc, alarms, pre) {
           content: {
             title: k === 'gunes' ? `Güneş doğdu · ${hm(t[k])}` : `${NAMES[k]} vakti girdi · ${hm(t[k])}`,
             body: k === 'gunes' ? `${loc.name}: Kerahat vakti başladı.` : `${loc.name} için ${NAMES[k]} vakti. Hayya ale's-salâh!`,
-            sound: mode === 'ezan' && HAS_EZAN_SOUND ? 'ezan.wav' : 'default',
+            sound: mode === 'ezan' && HAS_EZAN_SOUND ? 'ezan.wav' : snd,
           },
-          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: mode === 'ezan' ? CH_EZAN : CH_VAKIT },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: mode === 'ezan' ? CH_EZAN : CH.vakit[soundMode === 'sistem' ? 'sistem' : 'hayya'] },
         });
       }
       if (pre > 0 && k !== 'gunes') {
         const preAt = new Date(at.getTime() - pre * 60000);
         if (preAt.getTime() > now + 5000) {
           jobs.push({
-            content: { title: `${NAMES[k]} vaktine ${pre} dakika`, body: `${loc.name} · ${NAMES[k]} ${hm(t[k])}`, sound: 'default' },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: preAt, channelId: CH_HATIRLATMA },
+            content: { title: `${NAMES[k]} vaktine ${pre} dakika`, body: `${loc.name} · ${NAMES[k]} ${hm(t[k])}`, sound: snd },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: preAt, channelId: CH.hatirlatma[soundMode === 'sistem' ? 'sistem' : 'hayya'] },
           });
         }
       }
@@ -82,13 +92,14 @@ export async function scheduleAll(loc, alarms, pre) {
   return jobs.length;
 }
 
-export async function testNotification(loc, ezan = false) {
+export async function testNotification(loc, ezan = false, soundMode = 'hayya') {
+  const m = soundMode === 'sistem' ? 'sistem' : 'hayya';
   await Notifications.scheduleNotificationAsync({
     content: {
       title: ezan ? 'Hayya · Ezan sesi denemesi' : 'Hayya · Deneme bildirimi',
       body: `${loc.name} için vakit bildirimleri açık.`,
-      sound: ezan && HAS_EZAN_SOUND ? 'ezan.wav' : 'default',
+      sound: ezan && HAS_EZAN_SOUND ? 'ezan.wav' : soundFor(m),
     },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3, channelId: ezan ? CH_EZAN : CH_VAKIT },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3, channelId: ezan ? CH_EZAN : CH.vakit[m] },
   });
 }

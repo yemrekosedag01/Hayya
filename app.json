@@ -40,7 +40,8 @@
         {
           "icon": "./assets/notification-icon.png",
           "sounds": [
-            "./assets/ezan.wav"
+            "./assets/ezan.wav",
+            "./assets/hayya_bildirim.wav"
           ]
         }
       ],

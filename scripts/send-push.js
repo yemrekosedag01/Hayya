@@ -21,7 +21,7 @@ admin.initializeApp({ credential: admin.credential.cert(parseKey(FIREBASE_SERVIC
 admin.messaging().send({
   topic: TOPIC,
   notification: { title: TITLE, body: BODY },
-  android: { priority: 'high', notification: { channelId: 'duyuru-v1', sound: 'default' } },
+  android: { priority: 'high', notification: { channelId: 'duyuru-v2', sound: 'hayya_bildirim' } },
 }).then((id) => {
   console.log('Gönderildi:', id, '| hedef:', TOPIC);
 }).catch((e) => {
