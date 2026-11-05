@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import Svg, { Circle, Path, Text as SvgText, G, Rect } from 'react-native-svg';
 import { C } from '../theme';
 import { CITIES, KEYS, hm, prayerTimes, trNow, addDays, qibla } from '../prayer';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Card, u } from './ui';
 
 const SHORT = { imsak: 'İmsak', gunes: 'Güneş', ogle: 'Öğle', ikindi: 'İkindi', aksam: 'Akşam', yatsi: 'Yatsı' };
@@ -34,6 +35,8 @@ export default function TimesScreen({ loc, setLoc }) {
     return () => sub && sub.remove();
   }, [loc]);
 
+  const closePicker = () => { setPicker(false); setQuery(''); setErr(''); };
+
   const useGps = async () => {
     setErr(''); setBusy(true);
     try {
@@ -46,7 +49,7 @@ export default function TimesScreen({ loc, setLoc }) {
         if (g) name = g.subregion || g.district || g.city || g.region || name;
       } catch (e) {}
       setLoc({ name, lat: pos.coords.latitude, lng: pos.coords.longitude });
-      setPicker(false);
+      closePicker();
     } catch (e) {
       setErr('Konum alınamadı. Konum servisinin açık olduğundan emin olun.');
     } finally {
@@ -113,11 +116,16 @@ export default function TimesScreen({ loc, setLoc }) {
       </Card>
       <Text style={[u.src, { marginTop: 12 }]}>Vakitler Diyanetin kullandığı Türkiye yöntemiyle telefonda hesaplanır; internet gerekmez.</Text>
 
-      <Modal visible={picker} animationType="slide" transparent onRequestClose={() => setPicker(false)}>
-        <Pressable style={s.overlay} onPress={() => setPicker(false)}>
-          <Pressable style={s.sheet}>
-            <Text style={u.h2}>Konum seç</Text>
-            <Pressable style={[u.btn, { marginTop: 0, marginBottom: 8 }]} onPress={useGps} disabled={busy}>
+      <Modal visible={picker} animationType="slide" onRequestClose={closePicker}>
+        <SafeAreaProvider>
+          <SafeAreaView style={s.sheet} edges={['top', 'bottom', 'left', 'right']}>
+            <View style={s.sheetHead}>
+              <Text style={[u.h2, { marginBottom: 0 }]}>Konum seç</Text>
+              <Pressable onPress={closePicker} style={s.close} accessibilityLabel="Kapat">
+                <Text style={s.closeTxt}>Kapat</Text>
+              </Pressable>
+            </View>
+            <Pressable style={[u.btn, { marginTop: 12, marginBottom: 10 }]} onPress={useGps} disabled={busy}>
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={u.btnTxt}>📡 Konumumu kullan</Text>}
             </Pressable>
             {err ? <Text style={s.err}>{err}</Text> : null}
@@ -131,17 +139,20 @@ export default function TimesScreen({ loc, setLoc }) {
               accessibilityLabel="Şehir ara"
             />
             <FlatList
+              style={{ flex: 1 }}
               data={list}
-              keyboardShouldPersistTaps="handled"
               keyExtractor={(c) => c.name}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              ListEmptyComponent={<Text style={[u.src, { marginTop: 16 }]}>Bu isimde bir il bulunamadı.</Text>}
               renderItem={({ item }) => (
-                <Pressable style={s.cityRow} onPress={() => { setLoc(item); setPicker(false); setQuery(''); }}>
+                <Pressable style={s.cityRow} onPress={() => { setLoc(item); closePicker(); }}>
                   <Text style={s.cityTxt}>{item.name === loc.name ? '✓ ' : ''}{item.name}</Text>
                 </Pressable>
               )}
             />
-          </Pressable>
-        </Pressable>
+          </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
     </ScrollView>
   );
@@ -158,8 +169,10 @@ const s = StyleSheet.create({
   c: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '700', color: C.ink, fontVariant: ['tabular-nums'] },
   qRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 8 },
   qDeg: { fontSize: 28, fontWeight: '900', color: C.ink, marginBottom: 2 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, maxHeight: '75%' },
+  sheet: { flex: 1, backgroundColor: C.card, paddingHorizontal: 16, paddingTop: 8 },
+  sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  close: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: C.bg },
+  closeTxt: { fontSize: 15, fontWeight: '800', color: C.green },
   cityRow: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: C.line },
   cityTxt: { fontSize: 16, fontWeight: '700', color: C.ink },
   err: { color: C.bad, fontWeight: '700', marginBottom: 8 },
