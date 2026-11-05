@@ -7,12 +7,14 @@ if (!FIREBASE_SERVICE_ACCOUNT) throw new Error('FIREBASE_SERVICE_ACCOUNT gizli a
 if (!TITLE || !BODY) throw new Error('Başlık ve metin boş olamaz.');
 if (!/^[a-z0-9_-]{1,60}$/.test(TOPIC || '')) throw new Error('Geçersiz hedef: ' + TOPIC + ' (ör. tum, sehir_adana)');
 
-// Telefonda kopyalanırken özel anahtardaki "\n" kaçışları gerçek satır sonuna dönüşebiliyor; düzelt.
+// Telefonda kopyalanırken anahtarın içine fazladan satır sonu girebiliyor.
+// Özel anahtarı gövdesinden yeniden kurarak düzeltiriz.
 function parseKey(txt) {
-  try { return JSON.parse(txt); } catch (e) {
-    const fixed = txt.replace(/("private_key"\s*:\s*")([\s\S]*?)(")/, (m, a, b, c) => a + b.replace(/\r?\n/g, '\\n') + c);
-    return JSON.parse(fixed);
-  }
+  const cleaned = txt.replace(/("private_key"\s*:\s*")([\s\S]*?)(")/, (m, a, b, c) => a + b.replace(/[\r\n]/g, '') + c);
+  const obj = JSON.parse(cleaned);
+  const body = obj.private_key.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '').replace(/\\n|\s/g, '');
+  obj.private_key = '-----BEGIN PRIVATE KEY-----\n' + body.match(/.{1,64}/g).join('\n') + '\n-----END PRIVATE KEY-----\n';
+  return obj;
 }
 admin.initializeApp({ credential: admin.credential.cert(parseKey(FIREBASE_SERVICE_ACCOUNT.trim())) });
 
