@@ -1,0 +1,32 @@
+# Hayya kullanıcılarına anlık bildirim gönderir.
+# Gerekli gizli anahtar: FIREBASE_SERVICE_ACCOUNT (Firebase hizmet hesabı JSON'u)
+name: Bildirim gönder
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: "Başlık"
+        required: true
+      body:
+        description: "Metin"
+        required: true
+      topic:
+        description: "Hedef: tum (herkes) veya sehir_adana, sehir_istanbul..."
+        required: true
+        default: tum
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --no-audit --no-fund firebase-admin@13
+      - name: Gönder
+        env:
+          TITLE: ${{ inputs.title }}
+          BODY: ${{ inputs.body }}
+          TOPIC: ${{ inputs.topic }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/send-push.js
