@@ -82,9 +82,13 @@ export async function scheduleAll(loc, alarms, pre) {
   return jobs.length;
 }
 
-export async function testNotification(loc) {
+export async function testNotification(loc, ezan = false) {
   await Notifications.scheduleNotificationAsync({
-    content: { title: 'Hayya · Deneme bildirimi', body: `${loc.name} için vakit bildirimleri açık.`, sound: 'default' },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3, channelId: CH_VAKIT },
+    content: {
+      title: ezan ? 'Hayya · Ezan sesi denemesi' : 'Hayya · Deneme bildirimi',
+      body: `${loc.name} için vakit bildirimleri açık.`,
+      sound: ezan && HAS_EZAN_SOUND ? 'ezan.wav' : 'default',
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3, channelId: ezan ? CH_EZAN : CH_VAKIT },
   });
 }

@@ -54,6 +54,11 @@ export default function SettingsScreen({ loc, alarms, setAlarms, pre, setPre, no
       <Pressable style={u.btn} onPress={() => testNotification(loc)}>
         <Text style={u.btnTxt}>🔔 Deneme bildirimi gönder</Text>
       </Pressable>
+      {HAS_EZAN_SOUND && (
+        <Pressable style={[u.btn, u.btnGhost]} onPress={() => testNotification(loc, true)}>
+          <Text style={[u.btnTxt, { color: C.green }]}>🕌 Ezan sesini dene</Text>
+        </Pressable>
+      )}
 
       <Card title="💡 Bildirimler geç geliyorsa">
         <Text style={s.tip}>Bazı telefonlar (Xiaomi, Samsung, Oppo, Huawei) pil tasarrufu için bildirimleri geciktirebilir. Telefon ayarlarından Hayya için "Pil kısıtlaması yok" seçeneğini ve "Alarmlar ve hatırlatıcılar" iznini açın. Bildirimler 14 gün ileriye kurulur; uygulamayı arada bir açmanız yeterlidir.</Text>
