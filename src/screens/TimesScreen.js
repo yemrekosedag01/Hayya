@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet, Modal, FlatList, ActivityIndicator, TextInput } from 'react-native';
 import * as Location from 'expo-location';
 import Svg, { Circle, Path, Text as SvgText, G, Rect } from 'react-native-svg';
 import { C } from '../theme';
@@ -13,6 +13,9 @@ export default function TimesScreen({ loc, setLoc }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [heading, setHeading] = useState(null);
+  const [query, setQuery] = useState('');
+  const q2 = query.trim().toLocaleLowerCase('tr');
+  const list = q2 ? CITIES.filter((c) => c.name.toLocaleLowerCase('tr').includes(q2)) : CITIES;
 
   const q = qibla(loc.lat, loc.lng);
   const today = trNow();
@@ -118,11 +121,21 @@ export default function TimesScreen({ loc, setLoc }) {
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={u.btnTxt}>📡 Konumumu kullan</Text>}
             </Pressable>
             {err ? <Text style={s.err}>{err}</Text> : null}
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Şehir ara (81 il)"
+              placeholderTextColor={C.muted}
+              style={s.search}
+              autoCorrect={false}
+              accessibilityLabel="Şehir ara"
+            />
             <FlatList
-              data={CITIES}
+              data={list}
+              keyboardShouldPersistTaps="handled"
               keyExtractor={(c) => c.name}
               renderItem={({ item }) => (
-                <Pressable style={s.cityRow} onPress={() => { setLoc(item); setPicker(false); }}>
+                <Pressable style={s.cityRow} onPress={() => { setLoc(item); setPicker(false); setQuery(''); }}>
                   <Text style={s.cityTxt}>{item.name === loc.name ? '✓ ' : ''}{item.name}</Text>
                 </Pressable>
               )}
@@ -150,4 +163,5 @@ const s = StyleSheet.create({
   cityRow: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: C.line },
   cityTxt: { fontSize: 16, fontWeight: '700', color: C.ink },
   err: { color: C.bad, fontWeight: '700', marginBottom: 8 },
+  search: { borderWidth: 1, borderColor: C.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 16, color: C.ink, backgroundColor: C.bg, marginBottom: 6 },
 });
