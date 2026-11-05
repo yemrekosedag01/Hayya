@@ -1,9 +1,0 @@
-name: Paket bilgisi
-on: workflow_dispatch
-jobs:
-  info:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          npm view @react-native-firebase/app time --json | grep -E '"2[0-9]\.[0-9]+\.[0-9]+"' | tail -40
-          npm view react-native time --json | grep -E '"0\.8[3-6]\.0"'

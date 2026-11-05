@@ -13,8 +13,8 @@ for (const name of want) {
   if (!bundled[name]) throw new Error('Sürüm bulunamadı: ' + name);
   pkg.dependencies[name] = bundled[name];
 }
-// Firebase paketleri Expo listesinde yok: ikisi de aynı (en güncel) sürüm olmalı.
-pkg.dependencies['@react-native-firebase/app'] = '*';
-pkg.dependencies['@react-native-firebase/messaging'] = '*';
+// Firebase paketleri Expo listesinde yok. 23.8.x: React Native 0.83 ile uyumlu son seri (24+ daha yeni RN ister).
+pkg.dependencies['@react-native-firebase/app'] = '23.8.8';
+pkg.dependencies['@react-native-firebase/messaging'] = '23.8.8';
 fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
 console.log(pkg.dependencies);
