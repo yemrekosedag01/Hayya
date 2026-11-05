@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { C } from '../theme';
-import { KEYS, NAMES, hm, nextPrayer, trNow } from '../prayer';
+import { KEYS, NAMES, hm, nextPrayer, trNow, vakitSlot } from '../prayer';
 import { Card, u } from './ui';
 
 const dayIndex = () => {
@@ -28,8 +28,9 @@ export default function HomeScreen({ loc, content, go }) {
   const left = np.secondsLeft;
   const count = [Math.floor(left / 3600), Math.floor((left % 3600) / 60), left % 60].map((x) => String(x).padStart(2, '0')).join(':');
   const di = dayIndex();
-  const ayet = content.ayetler.length ? content.ayetler[di % content.ayetler.length] : null;
-  const hadis = content.hadisler.length ? content.hadisler[di % content.hadisler.length] : null;
+  const slot = vakitSlot(loc); // her vakit (günde 5 kez) değişir
+  const ayet = content.ayetler.length ? content.ayetler[slot % content.ayetler.length] : null;
+  const hadis = content.hadisler.length ? content.hadisler[slot % content.hadisler.length] : null;
   const ders = content.dersler.length ? content.dersler[di % content.dersler.length] : null;
 
   return (
@@ -51,13 +52,13 @@ export default function HomeScreen({ loc, content, go }) {
       </View>
 
       {ayet && (
-        <Card title="📖 Günün Ayeti">
+        <Card title="📖 Vaktin Ayeti">
           <Text style={u.quote}>“{ayet.text}”</Text>
           <Text style={u.src}>{ayet.src}</Text>
         </Card>
       )}
       {hadis && (
-        <Card title="🌿 Günün Hadisi">
+        <Card title="🌿 Vaktin Hadisi">
           <Text style={u.quote}>“{hadis.text}”</Text>
           <Text style={u.src}>{hadis.src}</Text>
         </Card>

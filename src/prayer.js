@@ -198,3 +198,19 @@ export const CITIES = [
   ['Düzce', 40.8389, 31.1617],
 ].map(([name, lat, lng]) => ({ name, lat, lng }))
   .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+
+/**
+ * "Vaktin ayeti/hadisi" sırası: günde 5 kez (İmsak, Öğle, İkindi, Akşam, Yatsı) ilerleyen sayaç.
+ * Güneş vakti yeni içerik getirmez; imsaktan önceki saatler bir önceki günün yatsısına sayılır.
+ */
+const SLOT = { imsak: 0, gunes: 0, ogle: 1, ikindi: 2, aksam: 3, yatsi: 4 };
+export function vakitSlot(loc) {
+  const n = trNow();
+  const t = prayerTimes(n, loc.lat, loc.lng);
+  const nowMin = n.sec / 60;
+  let day = Math.floor(Date.UTC(n.y, n.m - 1, n.d) / 864e5);
+  let slot;
+  if (nowMin < t.imsak) { day -= 1; slot = 4; }
+  else slot = SLOT[[...KEYS].reverse().find((k) => t[k] <= nowMin)];
+  return day * 5 + slot;
+}
