@@ -1,11 +1,10 @@
 import React from 'react';
-import { ScrollView, Text, Pressable, Linking, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { C } from '../theme';
-import { testNotification } from '../notifications';
-import { HAS_EZAN_SOUND, HAYYA_SOUND_READY } from '../config';
+import { HAYYA_SOUND_READY } from '../config';
 import { Card, Seg, u } from './ui';
 
-export default function SettingsScreen({ loc, theme, setTheme, vibNotif, setVibNotif, vibZikir, setVibZikir, soundMode, setSoundMode, ongoing, setOngoing }) {
+export default function SettingsScreen({ theme, setTheme, vibNotif, setVibNotif, vibZikir, setVibZikir, soundMode, setSoundMode, ongoing, setOngoing }) {
   return (
     <ScrollView contentContainerStyle={u.page}>
       <Card title="🌓 Görünüm" style={{ marginTop: 0 }}>
@@ -38,21 +37,6 @@ export default function SettingsScreen({ loc, theme, setTheme, vibNotif, setVibN
         </Card>
       )}
 
-      <Pressable style={u.btn} onPress={() => testNotification(loc, false, soundMode, vibNotif)}>
-        <Text style={u.btnTxt}>🔔 Deneme bildirimi gönder</Text>
-      </Pressable>
-      {HAS_EZAN_SOUND && (
-        <Pressable style={[u.btn, u.btnGhost]} onPress={() => testNotification(loc, true, soundMode, vibNotif)}>
-          <Text style={[u.btnTxt, { color: C.green }]}>🕌 Ezan sesini dene</Text>
-        </Pressable>
-      )}
-
-      <Card title="💡 Bildirimler geç geliyorsa">
-        <Text style={[u.tip, { color: C.ink }]}>Bazı telefonlar (Xiaomi, Samsung, Oppo, Huawei) pil tasarrufu için bildirimleri geciktirebilir. Telefon ayarlarından Hayya için "Pil kısıtlaması yok" seçeneğini ve "Alarmlar ve hatırlatıcılar" iznini açın. Bildirimler 14 gün ileriye kurulur; uygulamayı arada bir açmanız yeterlidir.</Text>
-        <Pressable style={[u.btn, u.btnGhost]} onPress={() => Linking.openSettings()}>
-          <Text style={[u.btnTxt, { color: C.green }]}>Uygulama ayarlarını aç</Text>
-        </Pressable>
-      </Card>
     </ScrollView>
   );
 }

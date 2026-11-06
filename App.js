@@ -22,6 +22,7 @@ import EsmaScreen from './src/screens/EsmaScreen';
 import DiniGunlerScreen from './src/screens/DiniGunlerScreen';
 import HicriScreen from './src/screens/HicriScreen';
 import AboutScreen from './src/screens/AboutScreen';
+import NotifScreen from './src/screens/NotifScreen';
 import { SubHeader } from './src/screens/ui';
 
 const TABS = [
@@ -33,7 +34,7 @@ const TABS = [
 ];
 
 const SUB_TITLES = {
-  zikir: 'Zikirmatik', kible: 'Kıble Pusulası', esma: 'Esmaül Hüsna', dini: 'Dini Günler',
+  bildirim: 'Ezan ve Bildirimler', zikir: 'Zikirmatik', kible: 'Kıble Pusulası', esma: 'Esmaül Hüsna', dini: 'Dini Günler',
   hicri: 'Hicri Takvim', ayarlar: 'Ayarlar', hakkinda: 'Hakkında ve Gizlilik',
 };
 
@@ -129,6 +130,10 @@ export default function App() {
         <SubHeader title={SUB_TITLES[sub]} onBack={() => setSub(null)} />
         <View style={{ flex: 1 }}>
           {{
+            bildirim: (
+              <NotifScreen loc={loc} alarms={alarms} setAlarms={setAlarms} pre={pre} setPre={setPre} notifOk={notifOk}
+                retryNotif={async () => setNotifOk(await setupNotifications())} soundMode={soundMode} vibNotif={vibNotif} />
+            ),
             zikir: <ZikirScreen vibZikir={vibZikir} />,
             kible: <QiblaScreen loc={loc} />,
             esma: <EsmaScreen />,
@@ -136,7 +141,7 @@ export default function App() {
             hicri: <HicriScreen />,
             hakkinda: <AboutScreen />,
             ayarlar: (
-              <SettingsScreen loc={loc} theme={theme} setTheme={setTheme} vibNotif={vibNotif} setVibNotif={setVibNotif}
+              <SettingsScreen theme={theme} setTheme={setTheme} vibNotif={vibNotif} setVibNotif={setVibNotif}
                 vibZikir={vibZikir} setVibZikir={setVibZikir} soundMode={soundMode} setSoundMode={setSoundMode}
                 ongoing={ongoing} setOngoing={setOngoing} />
             ),
@@ -144,8 +149,7 @@ export default function App() {
         </View>
       </View>
     ) : (
-      <MenuScreen open={setSub} alarms={alarms} setAlarms={setAlarms} pre={pre} setPre={setPre}
-        notifOk={notifOk} retryNotif={async () => setNotifOk(await setupNotifications())} />
+      <MenuScreen open={setSub} notifOk={notifOk} />
     ),
   }[tab];
 
