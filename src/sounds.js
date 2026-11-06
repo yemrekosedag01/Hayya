@@ -12,5 +12,5 @@ export const soundLabel = (id) => (SOUNDS.find((s) => s.id === id) || SOUNDS[0])
 export const isLong = (id) => !!(SOUNDS.find((s) => s.id === id) || {}).long;
 
 // Varsayılanlar: imsakta Sabah Ezanı, diğer vakitlerde Ezan 1 (Segâh); bütün hatırlatmalarda Hayya bildirim sesi
-export const DEFAULT_EZAN_SOUNDS = { imsak: 'sabah_ezan', gunes: 'hayya_ses', ogle: 'ezan', ikindi: 'ezan', aksam: 'ezan', yatsi: 'ezan' };
+export const DEFAULT_EZAN_SOUNDS = { imsak: 'sabah_ezan', gunes: 'ezan', ogle: 'ezan', ikindi: 'ezan', aksam: 'ezan', yatsi: 'ezan' };
 export const DEFAULT_REM_SOUNDS = { imsak: 'hayya_ses', ogle: 'hayya_ses', ikindi: 'hayya_ses', aksam: 'hayya_ses', yatsi: 'hayya_ses' };
