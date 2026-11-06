@@ -1,5 +1,5 @@
 // Anlık bildirimler (Firebase Cloud Messaging).
-// Herkes "tum" kanalına, ayrıca seçtiği şehrin kanalına (ör. "sehir_adana") abone olur.
+// Herkes "tum" kanalına, ilinin kanalına (ör. "sehir_adana") ve ilçe seçtiyse ilçesinin kanalına (ör. "ilce_seyhan") abone olur.
 // Bildirimler Firebase konsolundan (Messaging) gönderilir.
 import { getApp } from '@react-native-firebase/app';
 import {
@@ -9,6 +9,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { load, save } from './storage';
 import { HAYYA_SOUND_READY } from './config';
+import { CITIES } from './prayer';
 
 export const CH_DUYURU = HAYYA_SOUND_READY ? 'duyuru-v3' : 'duyuru-v2s';
 
@@ -45,14 +46,34 @@ export async function startPush() {
 }
 
 /** Şehir değişince eski şehir kanalından çıkıp yenisine abone olur. */
-export async function setPushCity(name) {
+const slug = (name) =>
+  String(name || '').toLocaleLowerCase('tr').split('').map((c) => TR[c] ?? c).join('').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+/** Konumun ili: listedeki il adı, telefonun verdiği il adı ya da en yakın il merkezi. */
+export function provinceOf(loc) {
+  const byName = (n) => n && CITIES.find((c) => slug(c.name) === slug(n));
+  const hit = byName(loc.name) || byName(loc.il);
+  if (hit) return hit.name;
+  let best = CITIES[0]; let bd = Infinity;
+  for (const c of CITIES) {
+    const d = (c.lat - loc.lat) ** 2 + ((c.lng - loc.lng) * Math.cos((loc.lat * Math.PI) / 180)) ** 2;
+    if (d < bd) { bd = d; best = c; }
+  }
+  return best.name;
+}
+
+/** Konum değişince il ve ilçe kanallarına abone ol (eskilerden çık). */
+export async function setPushCity(loc) {
   try {
     const m = getMessaging(getApp());
-    const next = cityTopic(name);
-    const prev = await load('pushCity', null);
-    if (prev === next) return;
-    if (prev) await unsubscribeFromTopic(m, prev).catch(() => {});
-    await subscribeToTopic(m, next);
-    await save('pushCity', next);
+    const il = provinceOf(loc);
+    const next = [cityTopic(il)];
+    if (slug(loc.name) !== slug(il)) next.push('ilce_' + slug(loc.name));
+    let prev = await load('pushTopics', null);
+    if (!prev) { const old = await load('pushCity', null); prev = old ? [old] : []; }
+    if (prev.join() === next.join()) return;
+    for (const t of prev) if (!next.includes(t)) await unsubscribeFromTopic(m, t).catch(() => {});
+    for (const t of next) if (!prev.includes(t)) await subscribeToTopic(m, t);
+    await save('pushTopics', next);
   } catch (e) {}
 }

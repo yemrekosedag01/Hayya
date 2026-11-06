@@ -10,6 +10,7 @@ import { loadRadio } from './src/radio';
 import { DEFAULT_VAKIT_SND, DEFAULT_HATIRLATMA, migrateSounds } from './src/sounds';
 import { setupNotifications, scheduleAll, notifGranted, askNotifPermission } from './src/notifications';
 import { startPush, setPushCity } from './src/push';
+import { fillProvince } from './src/location';
 import { applyOngoing } from './src/ongoing';
 import HomeScreen from './src/screens/HomeScreen';
 import TimesScreen from './src/screens/TimesScreen';
@@ -149,7 +150,15 @@ export default function App() {
     return () => h.remove();
   }, [tab, sub]);
 
-  useEffect(() => { if (ready) setPushCity(loc.name); }, [ready, loc.name]);
+  useEffect(() => {
+    if (!ready) return;
+    // İlçe seçmiş eski kullanıcılarda il bilgisi yoksa bir kez bul; sonra il + ilçe kanallarına abone ol
+    if (!loc.il && !CITIES.some((c) => c.name === loc.name)) {
+      fillProvince(loc).then((l) => { if (l) setLoc(l); else setPushCity(loc); });
+      return;
+    }
+    setPushCity(loc);
+  }, [ready, loc.name, loc.lat, loc.lng, loc.il]);
 
   // Bildirim çubuğundaki kalıcı vakit göstergesi
   useEffect(() => {
