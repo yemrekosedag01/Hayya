@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { KEYS, NAMES, prayerTimes, trNow, addDays, toDate, hm } from './prayer';
 import { HAS_EZAN_SOUND, HAYYA_SOUND_READY } from './config';
+import { hasNativeEzan, setEzan, testEzan } from '../modules/hayya-ongoing';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -67,6 +68,10 @@ export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya', vib = t
   const now = Date.now();
   const today = trNow();
   const jobs = [];
+  // Ezan, destekleyen Android sürümlerinde uygulamanın kendi oynatıcısıyla çalar:
+  // ses tuşu ezanı kesmez sesini kısar, yalnızca "Ezanı sustur" düğmesi susturur.
+  const nativeEzan = HAS_EZAN_SOUND && hasNativeEzan();
+  const ezanList = [];
   for (let i = 0; i < DAYS_AHEAD; i++) {
     const day = addDays(today, i);
     const t = prayerTimes(day, loc.lat, loc.lng);
@@ -74,7 +79,13 @@ export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya', vib = t
       const mode = alarms[k] || 'off';
       if (mode === 'off') continue;
       const at = toDate(day, t[k]);
-      if (at.getTime() > now + 5000) {
+      if (at.getTime() > now + 5000 && mode === 'ezan' && nativeEzan) {
+        ezanList.push({
+          t: at.getTime(),
+          title: k === 'gunes' ? `Güneş doğdu · ${hm(t[k])}` : `${NAMES[k]} vakti girdi · ${hm(t[k])}`,
+          body: k === 'gunes' ? `${loc.name}: Kerahat vakti başladı.` : `${loc.name} için ${NAMES[k]} vakti. Hayya ale's-salâh!`,
+        });
+      } else if (at.getTime() > now + 5000) {
         jobs.push({
           content: {
             title: k === 'gunes' ? `Güneş doğdu · ${hm(t[k])}` : `${NAMES[k]} vakti girdi · ${hm(t[k])}`,
@@ -95,6 +106,7 @@ export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya', vib = t
       }
     }
   }
+  if (hasNativeEzan()) setEzan(ezanList, vib);
   for (const j of jobs) {
     try { await Notifications.scheduleNotificationAsync(j); } catch (e) {}
   }
@@ -103,6 +115,10 @@ export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya', vib = t
 
 export async function testNotification(loc, ezan = false, soundMode = 'hayya', vib = true) {
   const m = effMode(soundMode);
+  if (ezan && HAS_EZAN_SOUND && hasNativeEzan()) {
+    testEzan('Hayya · Ezan sesi denemesi', `${loc.name} için ezan uyarıları açık. Susturmak için "Ezanı sustur"a dokunun.`);
+    return;
+  }
   await Notifications.scheduleNotificationAsync({
     content: {
       title: ezan ? 'Hayya · Ezan sesi denemesi' : 'Hayya · Deneme bildirimi',

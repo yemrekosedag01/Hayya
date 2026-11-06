@@ -11,3 +11,14 @@ export function startOngoing(payload) {
 export function stopOngoing() {
   try { if (Native) Native.stop(); } catch (e) {}
 }
+
+/** Ezan uygulama içinde (medya sesiyle) çalınabiliyor mu? */
+export const hasNativeEzan = () => !!(Native && Native.setEzan);
+
+export function setEzan(list, vib) {
+  try { if (Native) Native.setEzan(JSON.stringify(list), !!vib); } catch (e) {}
+}
+
+export function testEzan(title, body) {
+  try { if (Native) Native.testEzan(title, body); } catch (e) {}
+}

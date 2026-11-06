@@ -16,6 +16,25 @@ class HayyaOngoingModule : Module() {
       true
     }
 
+    // list: [{"t": ms, "title": "...", "body": "..."}] — ezan seçili vakitler
+    Function("setEzan") { list: String, vib: Boolean ->
+      val ctx = appContext.reactContext?.applicationContext ?: return@Function false
+      Ezan.save(ctx, list, vib)
+      true
+    }
+
+    Function("clearEzan") {
+      val ctx = appContext.reactContext?.applicationContext ?: return@Function false
+      Ezan.clear(ctx)
+      true
+    }
+
+    Function("testEzan") { title: String, body: String ->
+      val ctx = appContext.reactContext?.applicationContext ?: return@Function false
+      Ezan.play(ctx, title, body)
+      true
+    }
+
     Function("stop") {
       val ctx = appContext.reactContext?.applicationContext ?: return@Function false
       OngoingStore.setEnabled(ctx, false)
