@@ -7,6 +7,8 @@ import { pickForSlot } from '../content';
 import { hijriText, ymdNum } from '../hijri';
 import RadioCard from './RadioCard';
 import { toggle, dayKey } from '../namaz';
+import ShareCard from './ShareCard';
+import { numToYmd } from '../hijri';
 
 const dayIndex = () => {
   const n = trNow();
@@ -23,6 +25,7 @@ function formatDates() {
 
 export default function HomeScreen({ loc, content, go, radio, namaz, setNamaz }) {
   const [np, setNp] = useState(() => nextPrayer(loc));
+  const [card, setCard] = useState(null);
   useEffect(() => {
     setNp(nextPrayer(loc));
     const id = setInterval(() => setNp(nextPrayer(loc)), 1000);
@@ -71,13 +74,25 @@ export default function HomeScreen({ loc, content, go, radio, namaz, setNamaz })
         <Card title="📖 Vaktin Ayeti">
           <Text style={u.quote}>“{ayet.text}”</Text>
           <Text style={u.src}>{ayet.src}</Text>
+          <Pressable onPress={() => setCard({ label: '📖 Vaktin Ayeti', text: ayet.text, src: ayet.src })} style={s.share} hitSlop={8}>
+            <Text style={s.shareT}>📤 Paylaş</Text>
+          </Pressable>
         </Card>
       )}
       {hadis && (
         <Card title="🌿 Vaktin Hadisi">
           <Text style={u.quote}>“{hadis.text}”</Text>
           <Text style={u.src}>{hadis.src}</Text>
+          <Pressable onPress={() => setCard({ label: '🌿 Vaktin Hadisi', text: hadis.text, src: hadis.src })} style={s.share} hitSlop={8}>
+            <Text style={s.shareT}>📤 Paylaş</Text>
+          </Pressable>
         </Card>
+      )}
+
+      {numToYmd(di).wd === 5 && (
+        <Pressable style={s.cuma} onPress={() => setCard({ kind: 'tebrik', label: '🕌 Cuma', text: 'Hayırlı Cumalar', src: 'Rabbim dualarımızı kabul eylesin.' })}>
+          <Text style={s.cumaT}>🕌 Hayırlı Cumalar kartı paylaş</Text>
+        </Pressable>
       )}
 
       <RadioCard radio={radio} />
@@ -98,6 +113,7 @@ export default function HomeScreen({ loc, content, go, radio, namaz, setNamaz })
           </Pressable>
         )}
       </View>
+      <ShareCard card={card} onClose={() => setCard(null)} />
     </ScrollView>
   );
 }
@@ -113,6 +129,10 @@ const s = themed(() => ({
   tCur: { backgroundColor: C.goldSoft, borderColor: C.gold },
   tName: { fontSize: 11, color: C.muted, fontWeight: '800' },
   tVal: { fontSize: 15, fontWeight: '900', color: C.ink, marginTop: 2 },
+  share: { alignSelf: 'flex-end', marginTop: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
+  shareT: { fontSize: 13, fontWeight: '800', color: C.green },
+  cuma: { marginTop: 14, backgroundColor: C.goldSoft, borderWidth: 1, borderColor: C.gold, borderRadius: 16, padding: 14, alignItems: 'center' },
+  cumaT: { fontSize: 15, fontWeight: '900', color: C.goldInk },
   tDone: { borderColor: C.ok, backgroundColor: C.okSoft },
   tick: { fontSize: 14, fontWeight: '900', color: C.muted, marginTop: 2 },
   tickHint: { fontSize: 11, fontWeight: '700', color: C.muted, textAlign: 'center', marginTop: 6 },
