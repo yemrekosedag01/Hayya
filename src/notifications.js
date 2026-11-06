@@ -3,15 +3,6 @@ import { Platform } from 'react-native';
 import { KEYS, NAMES, prayerTimes, trNow, addDays, toDate, hm } from './prayer';
 import { HAS_EZAN_SOUND, HAYYA_SOUND_READY } from './config';
 import { hasNativeEzan, setEzan, testEzan } from '../modules/hayya-ongoing';
-import { ESMA } from './esma';
-
-// Hatırlatma bildirimindeki esma: her vakit bir sonraki isim (günde 5, 99 isim ~20 günde tamamlanır)
-const ESMA_SLOT = { imsak: 0, ogle: 1, ikindi: 2, aksam: 3, yatsi: 4 };
-const esmaFor = (day, k) => {
-  const n = Math.floor(Date.UTC(day.y, day.m - 1, day.d) / 864e5) * 5 + ESMA_SLOT[k];
-  const [name, mean] = ESMA[((n % ESMA.length) + ESMA.length) % ESMA.length];
-  return `✨ ${name}: ${mean}`;
-};
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -108,7 +99,7 @@ export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya', vib = t
         const preAt = new Date(at.getTime() - pre * 60000);
         if (preAt.getTime() > now + 5000) {
           jobs.push({
-            content: { title: `${NAMES[k]} vaktine ${pre} dakika`, body: `${loc.name} · ${NAMES[k]} ${hm(t[k])}\n${esmaFor(day, k)}`, sound: snd },
+            content: { title: `${NAMES[k]} vaktine ${pre} dakika`, body: `${loc.name} · ${NAMES[k]} ${hm(t[k])}`, sound: snd },
             trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: preAt, channelId: nv(CH.hatirlatma[effMode(soundMode)], vib) },
           });
         }
