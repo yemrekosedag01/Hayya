@@ -32,6 +32,12 @@ object OngoingNotifier {
     return f.format(ms)
   }
 
+  private fun hhmm(ms: Long): String {
+    val f = SimpleDateFormat("HH:mm", Locale.US)
+    f.timeZone = TR
+    return f.format(ms)
+  }
+
   private fun nextMidnight(now: Long): Long {
     val c = Calendar.getInstance(TR)
     c.timeInMillis = now
@@ -84,7 +90,8 @@ object OngoingNotifier {
     val b = NotificationCompat.Builder(ctx, CHANNEL)
       .setSmallIcon(icon)
       .setContentTitle("${next.name} vaktine kalan süre")
-      .setContentText(line)
+      // Kapalıyken tek satır (sonraki vakit), oka basınca günün bütün vakitleri
+      .setContentText("${next.name} vakti: ${hhmm(next.time)}")
       .setStyle(NotificationCompat.BigTextStyle().bigText(line))
       .setSubText(data.city)
       .setWhen(next.time)
