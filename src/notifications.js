@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
+import { load, save } from './storage';
 import { KEYS, NAMES, prayerTimes, trNow, addDays, toDate, hm } from './prayer';
 import { HAS_EZAN_SOUND, HAYYA_SOUND_READY } from './config';
 import { hasNativeEzan, setEzan, testEzan } from '../modules/hayya-ongoing';
@@ -54,8 +55,31 @@ export async function setupNotifications() {
   }
   const cur = await Notifications.getPermissionsAsync();
   if (cur.granted) return true;
-  const req = await Notifications.requestPermissionsAsync();
-  return req.granted;
+  // Sistem izni ilk açılışta bir kez sorulur; sonrasında uygulamanın kendi uyarısı sorar
+  if (!(await load('askedNotif', false))) {
+    await save('askedNotif', true);
+    const req = await Notifications.requestPermissionsAsync();
+    return req.granted;
+  }
+  return false;
+}
+
+/** Bildirim izni var mı? */
+export async function notifGranted() {
+  try { return (await Notifications.getPermissionsAsync()).granted; } catch (e) { return true; }
+}
+
+/** İzni iste; sistem artık sormuyorsa telefon ayarlarını aç. */
+export async function askNotifPermission() {
+  const cur = await Notifications.getPermissionsAsync();
+  if (cur.granted) return true;
+  if (cur.canAskAgain) {
+    const req = await Notifications.requestPermissionsAsync();
+    if (req.granted) return true;
+    if (req.canAskAgain) return false;
+  }
+  Linking.openSettings();
+  return false;
 }
 
 /**

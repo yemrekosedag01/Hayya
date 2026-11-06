@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, AppState, Image, BackHandler, useColorScheme } from 'react-native';
+import { View, Text, Pressable, AppState, Image, BackHandler, useColorScheme, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { C, themed, setTheme as applyTheme } from './src/theme';
@@ -8,7 +8,7 @@ import { load, save } from './src/storage';
 import { loadContent } from './src/content';
 import { loadRadio } from './src/radio';
 import { DEFAULT_EZAN_SOUNDS, DEFAULT_REM_SOUNDS } from './src/sounds';
-import { setupNotifications, scheduleAll } from './src/notifications';
+import { setupNotifications, scheduleAll, notifGranted, askNotifPermission } from './src/notifications';
 import { startPush, setPushCity } from './src/push';
 import { applyOngoing } from './src/ongoing';
 import HomeScreen from './src/screens/HomeScreen';
@@ -67,6 +67,22 @@ export default function App() {
   const dark = theme === 'dark' || (theme === 'auto' && sys === 'dark');
   applyTheme(dark ? 'dark' : 'light'); // çizimden önce renkleri ayarla
   const appState = useRef(AppState.currentState);
+  const asking = useRef(false);
+
+  // Bildirimler kapalıysa uygulamaya her girişte sor
+  const promptNotif = () => {
+    if (asking.current) return;
+    asking.current = true;
+    Alert.alert(
+      '🔔 Bildirimler kapalı',
+      'Ezan vakitlerinden ve hatırlatmalardan haberdar olmak için bildirimler açılsın mı?',
+      [
+        { text: 'Şimdi değil', style: 'cancel', onPress: () => { asking.current = false; } },
+        { text: 'Aç', onPress: async () => { setNotifOk(await askNotifPermission()); asking.current = false; } },
+      ],
+      { cancelable: true, onDismiss: () => { asking.current = false; } },
+    );
+  };
 
   // İlk açılış: kayıtlı ayarlar + içerik
   useEffect(() => {
@@ -85,8 +101,10 @@ export default function App() {
       setKazaS(await load('kaza', {}));
       setContent(await loadContent(setContent));
       setRadio(await loadRadio(setRadio));
-      setNotifOk(await setupNotifications());
+      const ok = await setupNotifications();
+      setNotifOk(ok);
       setReady(true);
+      if (!ok && (await load('askedNotif', false)) && !(await notifGranted())) promptNotif();
       startPush();
     })();
   }, []);
@@ -122,12 +140,16 @@ export default function App() {
 
   // Uygulamaya her dönüldüğünde bildirimleri tazele (7 günlük pencere ilerlesin)
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (next) => {
-      if (appState.current.match(/inactive|background/) && next === 'active' && ready && notifOk) {
-        scheduleAll(loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds);
-        applyOngoing(ongoing, loc);
-      }
+    const sub = AppState.addEventListener('change', async (next) => {
+      const back = !!appState.current.match(/inactive|background/) && next === 'active';
       appState.current = next;
+      if (!back || !ready) return;
+      // Uygulamaya dönüldü: izin durumu değişmiş olabilir (ayarlardan açıldıysa)
+      const g = await notifGranted();
+      if (g !== notifOk) { setNotifOk(g); return; } // değişince bildirimler zaten yeniden kurulur
+      if (!g) { promptNotif(); return; }
+      scheduleAll(loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds);
+      applyOngoing(ongoing, loc);
     });
     return () => sub.remove();
   }, [ready, loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds, ongoing, notifOk]);
@@ -144,7 +166,7 @@ export default function App() {
           {{
             bildirim: (
               <NotifScreen loc={loc} alarms={alarms} setAlarms={setAlarms} pre={pre} setPre={setPre} notifOk={notifOk}
-                retryNotif={async () => setNotifOk(await setupNotifications())} soundMode={soundMode} vibNotif={vibNotif}
+                retryNotif={async () => setNotifOk(await askNotifPermission())} soundMode={soundMode} vibNotif={vibNotif}
                 ezanSounds={ezanSounds} setEzanSounds={setEzanSounds} remSounds={remSounds} setRemSounds={setRemSounds} />
             ),
             namaz: <NamazScreen loc={loc} namaz={namaz} setNamaz={setNamaz} kaza={kaza} setKaza={setKaza} />,
