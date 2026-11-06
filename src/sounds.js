@@ -1,8 +1,8 @@
 // Seçilebilir sesler. long: uzun ses (ezan) -> uygulamanın kendi oynatıcısıyla çalar ("Sustur" düğmeli)
 export const SOUNDS = [
-  { id: 'ezan', label: 'Akşam Ezanı (Segâh)', long: true },
+  { id: 'ezan', label: 'Ezan 1 (Segâh)', long: true },
   { id: 'kisa_ezan', label: 'Kısa Ezan', long: true },
-  { id: 'uzun_ezan', label: 'Uzun Ezan', long: true },
+  { id: 'uzun_ezan', label: 'Ezan 2', long: true },
   { id: 'sabah_ezan', label: 'Sabah Ezanı', long: true },
   { id: 'salat_hayrun', label: 'Es-salâtü hayrun', long: true },
   { id: 'hayya_ses', label: 'Hayya bildirim sesi', long: false },
