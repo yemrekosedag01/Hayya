@@ -12,6 +12,9 @@ class HayyaOngoingModule : Module() {
       val ctx = appContext.reactContext?.applicationContext ?: return@Function false
       OngoingStore.save(ctx, payload)
       OngoingStore.setEnabled(ctx, true)
+      // Uygulama açıldı: kaydırma bekleme süresi (3/30 dk) iptal, gösterge hemen geri gelir
+      OngoingStore.setHiddenUntil(ctx, 0L)
+      OngoingStore.setDismissals(ctx, emptyList())
       OngoingNotifier.post(ctx)
       true
     }
