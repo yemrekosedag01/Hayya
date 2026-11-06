@@ -87,7 +87,7 @@ export async function scheduleAll(loc, vakitSnd = DEFAULT_VAKIT_SND, hatirlatma 
   const today = trNow();
   const jobs = [];
   // Uzun sesler (ezanlar) uygulamanın kendi oynatıcısıyla çalar:
-  // ses tuşu kesmez sesini kısar, yalnızca "Sustur" düğmesi susturur.
+  // ses açma/kısma tuşu ya da "Sustur" düğmesi susturur; bildirim çubuğunu indirmek susturmaz.
   const native = hasNativeEzan();
   const nativeList = [];
 

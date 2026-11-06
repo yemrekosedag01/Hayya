@@ -67,7 +67,7 @@ export default function NotifScreen({ loc, vakitSnd, setVakitSnd, hatirlatma, se
             <SoundBtn value={vakitSnd[k]} wide onPress={() => setPick({ kind: 'vakit', k })} />
           </View>
         ))}
-        <Text style={u.tip}>Ezanlar çalarken ses tuşlarıyla kısılır, bildirimdeki "Sustur" düğmesiyle susturulur.</Text>
+        <Text style={u.tip}>Ezan çalarken ses açma ya da kısma tuşuna basarak veya bildirimdeki "Sustur" düğmesiyle susturabilirsiniz. Bildirim çubuğunu indirmek ezanı susturmaz.</Text>
       </Card>
 
       <Pressable style={u.btn} onPress={() => testNotification(loc, false, 'hayya', vibNotif)}>

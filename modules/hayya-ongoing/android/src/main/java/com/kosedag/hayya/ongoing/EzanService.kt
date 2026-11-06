@@ -11,6 +11,11 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.media.VolumeProvider
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.IBinder
@@ -31,6 +36,9 @@ class EzanService : Service() {
   private var body = ""
   private var finished = false
   private var snd = "ezan"
+  private var session: MediaSession? = null
+  private var volReceiver: BroadcastReceiver? = null
+  private var startedAt = 0L
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -125,11 +133,57 @@ class EzanService : Service() {
       p.prepare()
       p.start()
       player = p
+      startedAt = System.currentTimeMillis()
+      listenVolumeKeys()
       true
     } catch (e: Exception) { false }
   }
 
+  /**
+   * Ses açma/kısma tuşuna basılınca ezan susar (bildirim çubuğu susturmaz).
+   * Medya oturumu ses tuşlarını kendine yönlendirir; ek olarak ses seviyesi değişimi de dinlenir.
+   */
+  private fun listenVolumeKeys() {
+    try {
+      val ms = MediaSession(this, "HayyaEzan")
+      ms.setPlaybackToRemote(object : VolumeProvider(VolumeProvider.VOLUME_CONTROL_RELATIVE, 100, 50) {
+        override fun onAdjustVolume(direction: Int) { if (direction != 0) stopByKey() }
+      })
+      ms.setPlaybackState(PlaybackState.Builder()
+        .setState(PlaybackState.STATE_PLAYING, 0, 1f)
+        .setActions(PlaybackState.ACTION_STOP)
+        .build())
+      ms.setCallback(object : MediaSession.Callback() {
+        override fun onStop() { finish() }
+      })
+      ms.isActive = true
+      session = ms
+    } catch (e: Exception) {}
+    try {
+      val r = object : BroadcastReceiver() {
+        override fun onReceive(c: Context?, i: Intent?) { stopByKey() }
+      }
+      val f = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
+      if (Build.VERSION.SDK_INT >= 33) registerReceiver(r, f, Context.RECEIVER_NOT_EXPORTED) else registerReceiver(r, f)
+      volReceiver = r
+    } catch (e: Exception) {}
+  }
+
+  private fun stopByKey() {
+    // Ezan başlarken sistemin kendi ses ayarı yayınlarını yok say
+    if (System.currentTimeMillis() - startedAt < 800) return
+    android.os.Handler(mainLooper).post { finish() }
+  }
+
+  private fun releaseKeys() {
+    try { session?.isActive = false; session?.release() } catch (e: Exception) {}
+    session = null
+    try { volReceiver?.let { unregisterReceiver(it) } } catch (e: Exception) {}
+    volReceiver = null
+  }
+
   private fun releasePlayer() {
+    releaseKeys()
     try { player?.stop() } catch (e: Exception) {}
     try { player?.release() } catch (e: Exception) {}
     player = null
