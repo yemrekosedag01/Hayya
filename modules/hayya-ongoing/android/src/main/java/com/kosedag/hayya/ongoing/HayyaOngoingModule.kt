@@ -66,6 +66,14 @@ class HayyaOngoingModule : Module() {
 
     Function("radioState") { RadioService.state() }
 
+    // Widget ve kalıcı gösterge için vakit listesini kaydet (gösterge kapalı olsa da widget kullanır)
+    Function("setData") { payload: String ->
+      val ctx = appContext.reactContext?.applicationContext ?: return@Function false
+      OngoingStore.save(ctx, payload)
+      HayyaWidget.updateAll(ctx)
+      true
+    }
+
     Function("stop") {
       val ctx = appContext.reactContext?.applicationContext ?: return@Function false
       OngoingStore.setEnabled(ctx, false)

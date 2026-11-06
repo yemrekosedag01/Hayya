@@ -1,5 +1,5 @@
 // Kalıcı vakit göstergesi için 30 günlük vakit listesini hazırlayıp Android modülüne verir.
-import { startOngoing, stopOngoing } from '../modules/hayya-ongoing';
+import { startOngoing, stopOngoing, setOngoingData } from '../modules/hayya-ongoing';
 import { KEYS, NAMES, prayerTimes, trNow, addDays, toDate, hm } from './prayer';
 
 const DAYS = 30;
@@ -21,6 +21,8 @@ export function buildOngoingPayload(loc) {
 }
 
 export function applyOngoing(enabled, loc) {
-  if (enabled) startOngoing(buildOngoingPayload(loc));
+  const payload = buildOngoingPayload(loc);
+  setOngoingData(payload); // ana ekran widget'ı her durumda güncel kalsın
+  if (enabled) startOngoing(payload);
   else stopOngoing();
 }

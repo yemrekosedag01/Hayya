@@ -12,6 +12,7 @@ class OngoingReceiver : BroadcastReceiver() {
       else -> { // açılış, güncelleme, saat değişimi
         OngoingNotifier.post(ctx)
         Ezan.scheduleNext(ctx)
+        HayyaWidget.updateAll(ctx)
       }
     }
   }

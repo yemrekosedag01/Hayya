@@ -8,6 +8,10 @@ export function startOngoing(payload) {
   try { if (Native) Native.start(JSON.stringify(payload)); } catch (e) {}
 }
 
+export function setOngoingData(payload) {
+  try { if (Native && Native.setData) Native.setData(JSON.stringify(payload)); } catch (e) {}
+}
+
 export function stopOngoing() {
   try { if (Native) Native.stop(); } catch (e) {}
 }

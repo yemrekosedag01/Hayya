@@ -117,7 +117,7 @@ export default function App() {
   useEffect(() => {
     if (!ready) return;
     save('ongoing', ongoing);
-    if (notifOk) applyOngoing(ongoing, loc);
+    applyOngoing(ongoing && notifOk, loc); // widget verisi izin olmasa da yazılır
   }, [ready, ongoing, loc, notifOk]);
 
   // Uygulamaya her dönüldüğünde bildirimleri tazele (7 günlük pencere ilerlesin)

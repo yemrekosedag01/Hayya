@@ -24,5 +24,14 @@
       android:name="com.kosedag.hayya.ongoing.RadioService"
       android:exported="false"
       android:foregroundServiceType="mediaPlayback" />
+    <receiver
+      android:name="com.kosedag.hayya.ongoing.HayyaWidget"
+      android:label="@string/hayya_widget_label"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/hayya_widget_info" />
+    </receiver>
   </application>
 </manifest>
