@@ -4,6 +4,8 @@ import { C, themed } from '../theme';
 import { KEYS, NAMES, hm, nextPrayer, trNow, vakitSlot } from '../prayer';
 import { Card, u } from './ui';
 import { pickForSlot } from '../content';
+import { hijriText, ymdNum } from '../hijri';
+import RadioCard from './RadioCard';
 
 const dayIndex = () => {
   const n = trNow();
@@ -14,11 +16,11 @@ function formatDates() {
   const d = trNow().date;
   let g = '', h = '';
   try { g = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long', weekday: 'long', timeZone: 'UTC' }).format(d); } catch (e) {}
-  try { h = new Intl.DateTimeFormat('tr-TR-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d); } catch (e) {}
+  h = hijriText(ymdNum(trNow())); // Diyanet takvimi
   return [g, h].filter(Boolean).join(' · ');
 }
 
-export default function HomeScreen({ loc, content, go }) {
+export default function HomeScreen({ loc, content, go, radio }) {
   const [np, setNp] = useState(() => nextPrayer(loc));
   useEffect(() => {
     setNp(nextPrayer(loc));
@@ -64,6 +66,8 @@ export default function HomeScreen({ loc, content, go }) {
           <Text style={u.src}>{hadis.src}</Text>
         </Card>
       )}
+
+      <RadioCard radio={radio} />
 
       <View style={s.row}>
         {ders && (

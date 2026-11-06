@@ -22,3 +22,15 @@ export function setEzan(list, vib) {
 export function testEzan(title, body) {
   try { if (Native) Native.testEzan(title, body); } catch (e) {}
 }
+
+// ---- Hayya Radyo ----
+export const hasRadio = () => !!(Native && Native.radioPlay);
+export function radioPlay(playlist) {
+  try { if (Native) Native.radioPlay(JSON.stringify(playlist)); } catch (e) {}
+}
+export function radioStop() {
+  try { if (Native) Native.radioStop(); } catch (e) {}
+}
+export function radioState() {
+  try { return Native ? JSON.parse(Native.radioState()) : null; } catch (e) { return null; }
+}

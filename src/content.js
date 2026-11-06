@@ -70,7 +70,7 @@ export function parseCSV(text) {
 }
 
 const norm = (s) => String(s || '').trim().toLocaleLowerCase('tr');
-const approved = (v) => ['evet', 'true', 'doğru', '✅', 'x'].includes(norm(v));
+export const approved = (v) => ['evet', 'true', 'doğru', '✅', 'x'].includes(norm(v));
 
 /** CSV satırlarını başlık adlarıyla nesneye çevirir. */
 function toObjects(rows) {
@@ -83,7 +83,7 @@ function toObjects(rows) {
   });
 }
 
-async function fetchSheet(name) {
+export async function fetchSheet(name) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(name)}`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 12000);

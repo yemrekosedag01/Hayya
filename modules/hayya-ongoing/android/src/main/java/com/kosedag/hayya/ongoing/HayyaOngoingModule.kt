@@ -38,6 +38,24 @@ class HayyaOngoingModule : Module() {
       true
     }
 
+    // Hayya Radyo. playlist: {"epoch": ms, "items": [{"url","dur","title","sub"}]}
+    Function("radioPlay") { playlist: String ->
+      val ctx = appContext.reactContext?.applicationContext ?: return@Function false
+      RadioService.savePlaylist(ctx, playlist)
+      val i = android.content.Intent(ctx, RadioService::class.java).setAction(RadioService.ACTION_START)
+      androidx.core.content.ContextCompat.startForegroundService(ctx, i)
+      true
+    }
+
+    Function("radioStop") {
+      val ctx = appContext.reactContext?.applicationContext ?: return@Function false
+      val i = android.content.Intent(ctx, RadioService::class.java).setAction(RadioService.ACTION_STOP)
+      try { ctx.startService(i) } catch (e: Exception) {}
+      true
+    }
+
+    Function("radioState") { RadioService.state() }
+
     Function("stop") {
       val ctx = appContext.reactContext?.applicationContext ?: return@Function false
       OngoingStore.setEnabled(ctx, false)

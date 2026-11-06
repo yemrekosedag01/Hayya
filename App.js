@@ -6,6 +6,7 @@ import { C, themed, setTheme as applyTheme } from './src/theme';
 import { CITIES } from './src/prayer';
 import { load, save } from './src/storage';
 import { loadContent } from './src/content';
+import { loadRadio } from './src/radio';
 import { setupNotifications, scheduleAll } from './src/notifications';
 import { startPush, setPushCity } from './src/push';
 import { applyOngoing } from './src/ongoing';
@@ -48,6 +49,7 @@ export default function App() {
   const [ongoing, setOngoing] = useState(true);
   const [content, setContent] = useState({ dersler: [], sorular: [], ayetler: [], hadisler: [] });
   const [notifOk, setNotifOk] = useState(true);
+  const [radio, setRadio] = useState({ tracks: [], sponsors: [] });
   const [sub, setSub] = useState(null); // menü içindeki alt sayfa
   const [theme, setTheme] = useState('auto');
   const [vibNotif, setVibNotif] = useState(true);
@@ -69,6 +71,7 @@ export default function App() {
       setVibNotif(await load('vibNotif', true));
       setVibZikir(await load('vibZikir', true));
       setContent(await loadContent(setContent));
+      setRadio(await loadRadio(setRadio));
       setNotifOk(await setupNotifications());
       setReady(true);
       startPush();
@@ -117,7 +120,7 @@ export default function App() {
   }, [ready, loc, alarms, pre, soundMode, vibNotif, ongoing, notifOk]);
 
   const screen = {
-    ana: <HomeScreen loc={loc} content={content} go={setTab} />,
+    ana: <HomeScreen loc={loc} content={content} go={setTab} radio={radio} />,
     vakitler: <TimesScreen loc={loc} setLoc={setLoc} />,
     dersler: <LessonsScreen content={content} go={setTab} />,
     quiz: <QuizScreen content={content} />,
