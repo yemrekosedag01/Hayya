@@ -7,6 +7,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.SystemClock
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import java.text.SimpleDateFormat
@@ -87,17 +89,29 @@ object OngoingNotifier {
     var icon = ctx.resources.getIdentifier("notification_icon", "drawable", ctx.packageName)
     if (icon == 0) icon = ctx.applicationInfo.icon
 
+    // Geri sayım bildirimin kendi satırında canlı akar (Chronometer): ek güncelleme, ek pil yok
+    val title = "${next.name} vaktine kalan süre"
+    val base = SystemClock.elapsedRealtime() + (next.time - now)
+    fun views(layout: Int): RemoteViews {
+      val v = RemoteViews(ctx.packageName, layout)
+      v.setTextViewText(R.id.hayya_title, title)
+      v.setChronometer(R.id.hayya_chrono, base, "%s kaldı", true)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) v.setChronometerCountDown(R.id.hayya_chrono, true)
+      return v
+    }
+    val small = views(R.layout.hayya_ongoing_small)
+    val big = views(R.layout.hayya_ongoing_big)
+    big.setTextViewText(R.id.hayya_times, line)
+
     val b = NotificationCompat.Builder(ctx, CHANNEL)
       .setSmallIcon(icon)
-      .setContentTitle("${next.name} vaktine kalan süre")
-      // Kapalıyken tek satır (sonraki vakit), oka basınca günün bütün vakitleri
+      .setContentTitle(title)
       .setContentText("${next.name} vakti: ${hhmm(next.time)}")
-      .setStyle(NotificationCompat.BigTextStyle().bigText(line))
       .setSubText(data.city)
-      .setWhen(next.time)
-      .setShowWhen(true)
-      .setUsesChronometer(true)
-      .setChronometerCountDown(true)
+      .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+      .setCustomContentView(small)
+      .setCustomBigContentView(big)
+      .setShowWhen(false)
       .setOnlyAlertOnce(true)
       .setSilent(true)
       .setPriority(NotificationCompat.PRIORITY_LOW)
