@@ -6,6 +6,7 @@ import { Card, u } from './ui';
 import { pickForSlot } from '../content';
 import { hijriText, ymdNum } from '../hijri';
 import RadioCard from './RadioCard';
+import { toggle, dayKey } from '../namaz';
 
 const dayIndex = () => {
   const n = trNow();
@@ -20,7 +21,7 @@ function formatDates() {
   return [g, h].filter(Boolean).join(' · ');
 }
 
-export default function HomeScreen({ loc, content, go, radio }) {
+export default function HomeScreen({ loc, content, go, radio, namaz, setNamaz }) {
   const [np, setNp] = useState(() => nextPrayer(loc));
   useEffect(() => {
     setNp(nextPrayer(loc));
@@ -46,13 +47,25 @@ export default function HomeScreen({ loc, content, go, radio }) {
       </View>
 
       <View style={s.times}>
-        {KEYS.map((k) => (
-          <View key={k} style={[s.t, k === np.current && s.tCur]}>
-            <Text style={[s.tName, k === np.current && { color: C.goldInk }]}>{NAMES[k]}</Text>
-            <Text style={s.tVal}>{hm(np.today[k])}</Text>
-          </View>
-        ))}
+        {KEYS.map((k) => {
+          // Vakti girmiş namaza dokununca "kıldım" işareti (Güneş hariç)
+          const dk = dayKey(trNow());
+          const entered = trNow().sec / 60 >= np.today[k];
+          const can = k !== 'gunes' && entered && setNamaz;
+          const done = !!(namaz && namaz[dk] && namaz[dk][k]);
+          const Box = can ? Pressable : View;
+          return (
+            <Box key={k} style={[s.t, k === np.current && s.tCur, done && s.tDone]}
+              {...(can ? { onPress: () => setNamaz(toggle(namaz, dk, k)), accessibilityLabel: `${NAMES[k]} kıldım` } : {})}>
+              <Text style={[s.tName, k === np.current && { color: C.goldInk }]}>{NAMES[k]}</Text>
+              <Text style={s.tVal}>{hm(np.today[k])}</Text>
+              {k !== 'gunes' && <Text style={[s.tick, done && { color: C.ok }, !entered && { opacity: 0.25 }]}>{done ? '✓' : '○'}</Text>}
+            </Box>
+          );
+        })}
       </View>
+
+      <Text style={s.tickHint}>Kıldığınız namazın vaktine dokunarak işaretleyin</Text>
 
       {ayet && (
         <Card title="📖 Vaktin Ayeti">
@@ -100,6 +113,9 @@ const s = themed(() => ({
   tCur: { backgroundColor: C.goldSoft, borderColor: C.gold },
   tName: { fontSize: 11, color: C.muted, fontWeight: '800' },
   tVal: { fontSize: 15, fontWeight: '900', color: C.ink, marginTop: 2 },
+  tDone: { borderColor: C.ok, backgroundColor: C.okSoft },
+  tick: { fontSize: 14, fontWeight: '900', color: C.muted, marginTop: 2 },
+  tickHint: { fontSize: 11, fontWeight: '700', color: C.muted, textAlign: 'center', marginTop: 6 },
   row: { flexDirection: 'row', gap: 10, marginTop: 14 },
   mini: { flex: 1, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 18, padding: 14 },
   miniT: { fontSize: 15, fontWeight: '800', marginTop: 6, color: C.ink },

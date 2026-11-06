@@ -24,6 +24,7 @@ import DiniGunlerScreen from './src/screens/DiniGunlerScreen';
 import HicriScreen from './src/screens/HicriScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import NotifScreen from './src/screens/NotifScreen';
+import NamazScreen from './src/screens/NamazScreen';
 import { SubHeader } from './src/screens/ui';
 
 const TABS = [
@@ -35,7 +36,7 @@ const TABS = [
 ];
 
 const SUB_TITLES = {
-  bildirim: 'Ezan ve Bildirimler', zikir: 'Zikirmatik', kible: 'Kıble Pusulası', esma: 'Esmaül Hüsna', dini: 'Dini Günler',
+  bildirim: 'Ezan ve Bildirimler', namaz: 'Namaz Takibi', zikir: 'Zikirmatik', kible: 'Kıble Pusulası', esma: 'Esmaül Hüsna', dini: 'Dini Günler',
   hicri: 'Hicri Takvim', ayarlar: 'Ayarlar', hakkinda: 'Hakkında ve Gizlilik',
 };
 
@@ -58,6 +59,10 @@ export default function App() {
   const [vibZikir, setVibZikir] = useState(true);
   const [ezanSounds, setEzanSounds] = useState(DEFAULT_EZAN_SOUNDS);
   const [remSounds, setRemSounds] = useState(DEFAULT_REM_SOUNDS);
+  const [namaz, setNamazS] = useState({});
+  const [kaza, setKazaS] = useState({});
+  const setNamaz = (v) => { setNamazS(v); save('namaz', v); };
+  const setKaza = (v) => { setKazaS(v); save('kaza', v); };
   const sys = useColorScheme();
   const dark = theme === 'dark' || (theme === 'auto' && sys === 'dark');
   applyTheme(dark ? 'dark' : 'light'); // çizimden önce renkleri ayarla
@@ -76,6 +81,8 @@ export default function App() {
       setVibZikir(await load('vibZikir', true));
       setEzanSounds({ ...DEFAULT_EZAN_SOUNDS, ...(await load('ezanSounds', {})) });
       setRemSounds({ ...DEFAULT_REM_SOUNDS, ...(await load('remSounds', {})) });
+      setNamazS(await load('namaz', {}));
+      setKazaS(await load('kaza', {}));
       setContent(await loadContent(setContent));
       setRadio(await loadRadio(setRadio));
       setNotifOk(await setupNotifications());
@@ -126,7 +133,7 @@ export default function App() {
   }, [ready, loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds, ongoing, notifOk]);
 
   const screen = {
-    ana: <HomeScreen loc={loc} content={content} go={setTab} radio={radio} />,
+    ana: <HomeScreen loc={loc} content={content} go={setTab} radio={radio} namaz={namaz} setNamaz={setNamaz} />,
     vakitler: <TimesScreen loc={loc} setLoc={setLoc} />,
     dersler: <LessonsScreen content={content} go={setTab} />,
     quiz: <QuizScreen content={content} />,
@@ -140,6 +147,7 @@ export default function App() {
                 retryNotif={async () => setNotifOk(await setupNotifications())} soundMode={soundMode} vibNotif={vibNotif}
                 ezanSounds={ezanSounds} setEzanSounds={setEzanSounds} remSounds={remSounds} setRemSounds={setRemSounds} />
             ),
+            namaz: <NamazScreen loc={loc} namaz={namaz} setNamaz={setNamaz} kaza={kaza} setKaza={setKaza} />,
             zikir: <ZikirScreen vibZikir={vibZikir} />,
             kible: <QiblaScreen loc={loc} />,
             esma: <EsmaScreen />,

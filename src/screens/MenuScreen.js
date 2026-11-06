@@ -8,6 +8,7 @@ import { Card, u } from './ui';
 
 const TILES = [
   { key: 'bildirim', icon: '🔔', title: 'Ezan ve Bildirimler', sub: 'Vakit uyarıları ve hatırlatma' },
+  { key: 'namaz', icon: '✅', title: 'Namaz Takibi', sub: 'Kıldıklarım ve kaza borcu' },
   { key: 'zikir', icon: '📿', title: 'Zikirmatik', sub: 'Tesbihat ve zikir sayacı' },
   { key: 'kible', icon: '🧭', title: 'Kıble Pusulası', sub: 'Kâbe yönünü bul' },
   { key: 'esma', icon: '✨', title: 'Esmaül Hüsna', sub: 'Allah’ın 99 güzel ismi' },
