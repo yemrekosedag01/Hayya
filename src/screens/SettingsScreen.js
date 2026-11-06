@@ -26,7 +26,7 @@ export default function SettingsScreen({ loc, theme, setTheme, vibNotif, setVibN
         <View style={{ marginTop: 12 }}>
           <Seg items={[[true, 'Açık'], [false, 'Kapalı']]} value={ongoing} onChange={setOngoing} />
         </View>
-        <Text style={u.tip}>Bildirim çubuğunda bir sonraki vakte kalan süre ve günün vakitleri görünür. Kaydırıp kapatırsanız 5 dakika sonra yeniden gelir.</Text>
+        <Text style={u.tip}>Bildirim çubuğunda bir sonraki vakte kalan süre ve günün vakitleri görünür. Kaydırıp kapatırsanız 3 dakika sonra yeniden gelir; 20 dakika içinde 5 kez kaydırırsanız 30 dakika gizli kalır.</Text>
       </Card>
 
       {HAYYA_SOUND_READY && (

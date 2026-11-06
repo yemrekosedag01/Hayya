@@ -19,7 +19,11 @@ object OngoingNotifier {
   const val NOTIF_ID = 7701
   const val ACTION_REFRESH = "com.kosedag.hayya.ongoing.REFRESH"
   const val ACTION_DISMISSED = "com.kosedag.hayya.ongoing.DISMISSED"
-  private const val RETURN_AFTER_MS = 5 * 60 * 1000L
+  // Kaydırılınca 3 dk sonra geri gelir; 20 dk içinde 5. kez kaydırılırsa 30 dk gizli kalır.
+  private const val RETURN_AFTER_MS = 3 * 60 * 1000L
+  private const val LONG_HIDE_MS = 30 * 60 * 1000L
+  private const val WINDOW_MS = 20 * 60 * 1000L
+  private const val MAX_DISMISSALS = 5
   private val TR: TimeZone = TimeZone.getTimeZone("Europe/Istanbul")
 
   private fun dayKey(ms: Long): String {
@@ -66,6 +70,8 @@ object OngoingNotifier {
     if (!OngoingStore.enabled(ctx)) return
     val data = OngoingStore.load(ctx) ?: return
     val now = System.currentTimeMillis()
+    val hidden = OngoingStore.hiddenUntil(ctx)
+    if (now < hidden) { scheduleRefresh(ctx, hidden); return }
     val next = data.items.firstOrNull { it.time > now } ?: run { cancel(ctx); return }
     ensureChannel(ctx)
 
@@ -105,7 +111,13 @@ object OngoingNotifier {
 
   fun onDismissed(ctx: Context) {
     if (!OngoingStore.enabled(ctx)) return
-    scheduleRefresh(ctx, System.currentTimeMillis() + RETURN_AFTER_MS)
+    val now = System.currentTimeMillis()
+    val list = OngoingStore.dismissals(ctx).filter { now - it < WINDOW_MS }.toMutableList()
+    list.add(now)
+    val wait = if (list.size >= MAX_DISMISSALS) LONG_HIDE_MS else RETURN_AFTER_MS
+    OngoingStore.setDismissals(ctx, if (wait == LONG_HIDE_MS) emptyList() else list)
+    OngoingStore.setHiddenUntil(ctx, now + wait)
+    scheduleRefresh(ctx, now + wait)
   }
 
   fun cancel(ctx: Context) {

@@ -20,6 +20,22 @@ object OngoingStore {
   fun enabled(ctx: Context): Boolean =
     ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("enabled", false)
 
+  /** Kaydırma zamanları (ms) ve gizli kalma bitişi */
+  fun dismissals(ctx: Context): MutableList<Long> =
+    (ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("dismissals", "") ?: "")
+      .split(',').mapNotNull { it.toLongOrNull() }.toMutableList()
+
+  fun setDismissals(ctx: Context, list: List<Long>) {
+    ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("dismissals", list.joinToString(",")).apply()
+  }
+
+  fun hiddenUntil(ctx: Context): Long =
+    ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong("hiddenUntil", 0L)
+
+  fun setHiddenUntil(ctx: Context, at: Long) {
+    ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("hiddenUntil", at).apply()
+  }
+
   fun load(ctx: Context): OngoingData? {
     val raw = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("payload", null) ?: return null
     return try {
