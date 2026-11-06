@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, Pressable, Linking, Modal } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { SOUNDS, soundLabel } from '../sounds';
-import { previewSound, stopPreview, isPreviewing } from '../../modules/hayya-ongoing';
+import { previewSound, stopPreview, isPreviewing, canExact, openExactSettings } from '../../modules/hayya-ongoing';
+import { AppState } from 'react-native';
 import { C, themed } from '../theme';
 import { KEYS, NAMES } from '../prayer';
 import { testNotification } from '../notifications';
@@ -14,8 +15,20 @@ const PRE = [0, 10, 15, 30, 45];
 
 export default function NotifScreen({ loc, alarms, setAlarms, pre, setPre, notifOk, retryNotif, soundMode, vibNotif, ezanSounds, setEzanSounds, remSounds, setRemSounds }) {
   const [pick, setPick] = useState(null); // ses seçilen vakit
+  const [exact, setExact] = useState(() => canExact());
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') setExact(canExact()); });
+    return () => sub.remove();
+  }, []);
   return (
     <ScrollView contentContainerStyle={u.page}>
+      {!exact && (
+        <Card style={{ marginTop: 0, marginBottom: 14, borderColor: C.gold, backgroundColor: C.goldSoft }}>
+          <Text style={[u.quote, { fontSize: 16, marginTop: 0 }]}>⏰ Ezanın tam vaktinde okunması için "Alarmlar ve hatırlatıcılar" iznini açın.</Text>
+          <Text style={[u.tip, { color: C.ink }]}>Bu izin kapalıyken telefon, pil tasarrufu için ezanı birkaç dakika geciktirebilir.</Text>
+          <Pressable style={u.btn} onPress={openExactSettings}><Text style={u.btnTxt}>İzni aç</Text></Pressable>
+        </Card>
+      )}
       {!notifOk && (
         <Card style={{ marginTop: 0, borderColor: C.bad }}>
           <Text style={[u.quote, { fontSize: 16, marginTop: 0 }]}>Bildirim izni kapalı. Vakit uyarıları için izin verin.</Text>

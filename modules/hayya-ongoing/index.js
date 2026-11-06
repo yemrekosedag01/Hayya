@@ -43,3 +43,7 @@ export function radioStop() {
 export function radioState() {
   try { return Native ? JSON.parse(Native.radioState()) : null; } catch (e) { return null; }
 }
+
+// "Alarmlar ve hatırlatıcılar" izni
+export function canExact() { try { return Native && Native.canExact ? Native.canExact() : true; } catch (e) { return true; } }
+export function openExactSettings() { try { if (Native && Native.openExactSettings) Native.openExactSettings(); } catch (e) {} }

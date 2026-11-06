@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { C, themed } from '../theme';
-import { KEYS, NAMES, hm, nextPrayer, trNow, vakitSlot } from '../prayer';
+import { KEYS, NAMES, hm, nextPrayer, trNow, vakitSlot, addDays } from '../prayer';
+import { load, save } from '../storage';
 import { Card, u } from './ui';
 import { pickForSlot } from '../content';
 import { hijriText, ymdNum } from '../hijri';
@@ -26,6 +27,8 @@ function formatDates() {
 export default function HomeScreen({ loc, content, go, radio, namaz, setNamaz }) {
   const [np, setNp] = useState(() => nextPrayer(loc));
   const [card, setCard] = useState(null);
+  const [kehfDone, setKehfDone] = useState(null);
+  useEffect(() => { load('kehfDone', '').then(setKehfDone); }, []);
   useEffect(() => {
     setNp(nextPrayer(loc));
     const id = setInterval(() => setNp(nextPrayer(loc)), 1000);
@@ -40,8 +43,25 @@ export default function HomeScreen({ loc, content, go, radio, namaz, setNamaz })
   const hadis = pickForSlot(content.hadisler, slot);
   const ders = content.dersler.length ? content.dersler[di % content.dersler.length] : null;
 
+  // Cuma modu: Perşembe akşamından Cuma akşamına kadar Kehf hatırlatması (en üstte)
+  const n0 = trNow();
+  const wd = numToYmd(di).wd;
+  const nowMin = n0.sec / 60;
+  const kehfDay = wd === 5 && nowMin < np.today.aksam ? dayKey(n0) : wd === 4 && nowMin >= np.today.aksam ? dayKey(addDays(n0, 1)) : null;
+  const showKehf = kehfDay && kehfDone !== null && kehfDone !== kehfDay;
+
   return (
     <ScrollView contentContainerStyle={u.page}>
+      {showKehf && (
+        <View style={s.kehf}>
+          <Text style={s.kehfT}>🕌 {wd === 4 ? 'Cuma gecesi' : 'Bugün Cuma'} · Kehf Suresi</Text>
+          <Text style={s.kehfB}>"Kim Cuma günü Kehf Suresini okursa, onun için iki Cuma arası nurla aydınlatılır."</Text>
+          <Text style={s.kehfS}>Hâkim, Müstedrek; Beyhakî</Text>
+          <Pressable style={s.kehfBtn} onPress={() => { setKehfDone(kehfDay); save('kehfDone', kehfDay); }}>
+            <Text style={s.kehfBtnT}>Okudum ✓</Text>
+          </Pressable>
+        </View>
+      )}
       <View style={s.hero}>
         <Text style={s.lbl}>Sonraki vakit</Text>
         <Text style={s.next}>{NAMES[np.key]} · {hm(np.at)}</Text>
@@ -131,6 +151,12 @@ const s = themed(() => ({
   tVal: { fontSize: 15, fontWeight: '900', color: C.ink, marginTop: 2 },
   share: { alignSelf: 'flex-end', marginTop: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line },
   shareT: { fontSize: 13, fontWeight: '800', color: C.green },
+  kehf: { backgroundColor: C.goldSoft, borderWidth: 1, borderColor: C.gold, borderRadius: 20, padding: 16, marginBottom: 12 },
+  kehfT: { fontSize: 16, fontWeight: '900', color: C.goldInk },
+  kehfB: { fontSize: 15, lineHeight: 21, fontWeight: '700', color: C.ink, marginTop: 6 },
+  kehfS: { fontSize: 12, fontWeight: '700', color: C.muted, marginTop: 4 },
+  kehfBtn: { alignSelf: 'flex-start', marginTop: 10, backgroundColor: C.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
+  kehfBtnT: { color: '#fff', fontWeight: '900', fontSize: 14 },
   cuma: { marginTop: 14, backgroundColor: C.goldSoft, borderWidth: 1, borderColor: C.gold, borderRadius: 16, padding: 14, alignItems: 'center' },
   cumaT: { fontSize: 15, fontWeight: '900', color: C.goldInk },
   tDone: { borderColor: C.ok, backgroundColor: C.okSoft },

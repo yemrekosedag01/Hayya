@@ -74,6 +74,22 @@ class HayyaOngoingModule : Module() {
       true
     }
 
+    // "Alarmlar ve hatırlatıcılar" izni (Android 12+): kapalıysa ezan birkaç dakika gecikebilir
+    Function("canExact") {
+      val ctx = appContext.reactContext?.applicationContext ?: return@Function true
+      if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return@Function true
+      (ctx.getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager).canScheduleExactAlarms()
+    }
+
+    Function("openExactSettings") {
+      val ctx = appContext.reactContext?.applicationContext ?: return@Function false
+      if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return@Function false
+      val i = android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+        .setData(android.net.Uri.parse("package:" + ctx.packageName))
+        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+      try { ctx.startActivity(i); true } catch (e: Exception) { false }
+    }
+
     Function("stop") {
       val ctx = appContext.reactContext?.applicationContext ?: return@Function false
       OngoingStore.setEnabled(ctx, false)
