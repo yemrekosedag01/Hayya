@@ -9,5 +9,8 @@
   },
   "dependencies": {
     "expo": "~55.0.0"
+  },
+  "overrides": {
+    "electron-to-chromium": "<1.5.478"
   }
 }
