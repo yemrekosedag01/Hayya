@@ -9,8 +9,24 @@ import { SURAH_TR, SURAH_AR, BISMILLAH, TOTAL_AYAH, RECITERS, audioUrl, quranDat
 
 import { hasQuranAudio, quranPlay, quranCmd, quranState } from '../../modules/hayya-ongoing';
 
-const DEF = { last: null, read: {}, hatims: 0, days: 30, dayKey: 0, dayN: 0, reciter: RECITERS[0].id, fs: 28, meal: true };
+const DEF = { last: null, read: {}, hatims: 0, days: 30, dayKey: 0, dayN: 0, reciter: RECITERS[0].id, fs: 28, meal: true, view: 'ayet' };
 const DAY_CHOICES = [10, 30, 60, 90];
+
+const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+const arNum = (n) => String(n).replace(/\d/g, (d) => AR_DIGITS[d]);
+const CHUNK = 10; // tam sayfa modunda bir parçadaki ayet sayısı
+
+function ViewToggle({ view, set }) {
+  return (
+    <View style={s2.seg}>
+      {[['ayet', 'Ayet ayet'], ['sayfa', 'Tam sayfa']].map(([k, l]) => (
+        <Pressable key={k} onPress={() => set({ view: k })} style={[s2.segB, view === k && s2.segOn]}>
+          <Text style={[s2.segT, view === k && s2.segTOn]}>{l}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
 
 const totalRead = (read) => Object.values(read).reduce((a, b) => a + b, 0);
 
@@ -68,9 +84,6 @@ export default function QuranScreen() {
       setPaused(!!st0.paused);
       setNow((cur) => {
         if (cur && cur.s === b.s && cur.a === a) return cur;
-        if (surahRef.current === b.s && listRef.current) {
-          try { listRef.current.scrollToIndex({ index: a - 1, viewPosition: 0.2, animated: true }); } catch (e) {}
-        }
         return { s: b.s, a };
       });
     }, 700);
@@ -120,6 +133,7 @@ export default function QuranScreen() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View>
+            <ViewToggle view={st.view} set={set} />
             {st.last && (
               <Pressable style={s2.cont} onPress={() => setSurah(st.last.s)}>
                 <Text style={s2.contT}>📖 Kaldığın yerden devam et</Text>
@@ -187,13 +201,35 @@ function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPr
   const { ar, tr } = quranData();
   const ayahs = ar[s - 1];
   const items = ayahs.map((t, i) => ({ a: i + 1, t, m: tr[s - 1][i] }));
+  const chunks = [];
+  for (let i = 0; i < items.length; i += CHUNK) chunks.push({ k: i / CHUNK, list: items.slice(i, i + CHUNK) });
   const readTo = st.read[s] || 0;
+  const flow = st.view === 'sayfa';
+  const [sel, setSel] = useState(null); // tam sayfada dokunulan ayet
+  const lastChunk = useRef(-1);
+  useEffect(() => { lastChunk.current = -1; }, [flow]);
+
   useEffect(() => {
     if (st.last && st.last.s === s && st.last.a > 1) {
-      const t = setTimeout(() => { try { listRef.current && listRef.current.scrollToIndex({ index: st.last.a - 1, viewPosition: 0.1, animated: false }); } catch (e) {} }, 300);
+      const t = setTimeout(() => {
+        try { listRef.current && listRef.current.scrollToIndex({ index: flow ? Math.floor((st.last.a - 1) / CHUNK) : st.last.a - 1, viewPosition: 0.1, animated: false }); } catch (e) {}
+      }, 300);
       return () => clearTimeout(t);
     }
-  }, []);
+    return undefined;
+  }, [flow]);
+
+  // Çalan ayet değişince ekranı kaydır (tam sayfada parça değişince)
+  useEffect(() => {
+    if (!now || now.s !== s) return;
+    const idx = flow ? Math.floor((now.a - 1) / CHUNK) : now.a - 1;
+    if (idx !== lastChunk.current) {
+      lastChunk.current = idx;
+      try { listRef.current && listRef.current.scrollToIndex({ index: idx, viewPosition: flow ? 0.05 : 0.2, animated: true }); } catch (e) {}
+    }
+  }, [now, flow]);
+
+  const bottomPad = now || sel ? 110 : 30;
   return (
     <View style={{ flex: 1 }}>
       <View style={s2.head}>
@@ -205,31 +241,76 @@ function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPr
           <Pressable style={s2.fsBtn} onPress={() => set({ meal: !st.meal })}><Text style={s2.fsT}>{st.meal ? 'Meal ✓' : 'Meal'}</Text></Pressable>
         </View>
       </View>
-      <FlatList
-        ref={listRef}
-        contentContainerStyle={[u.page, { paddingBottom: now ? 110 : 30 }]}
-        data={items}
-        keyExtractor={(x) => String(x.a)}
-        onScrollToIndexFailed={() => {}}
-        ListHeaderComponent={s !== 1 && s !== 9 ? <Text style={[s2.bism, { fontSize: st.fs }]}>{BISMILLAH}</Text> : null}
-        renderItem={({ item }) => {
-          const on = now && now.s === s && now.a === item.a;
-          const done = item.a <= readTo;
-          return (
-            <View style={[s2.ay, on && s2.ayOn]}>
-              <View style={s2.ayTop}>
-                <View style={s2.num}><Text style={s2.numT}>{item.a}</Text></View>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable style={s2.act} onPress={() => onPlay(s, item.a)}><Text style={s2.actT}>▶</Text></Pressable>
-                  <Pressable style={[s2.act, done && s2.actOn]} onPress={() => onMark(s, item.a)}><Text style={[s2.actT, done && { color: '#fff' }]}>✓</Text></Pressable>
-                </View>
-              </View>
-              <Text style={[s2.arT, { fontSize: st.fs, lineHeight: st.fs * 1.9 }]}>{item.t}</Text>
-              {st.meal && <Text style={s2.mealT}>{item.m}</Text>}
+      <View style={{ paddingHorizontal: 14, paddingTop: 8 }}><ViewToggle view={st.view} set={(p) => { setSel(null); set(p); }} /></View>
+      {flow ? (
+        <FlatList
+          key="flow"
+          ref={listRef}
+          contentContainerStyle={[u.page, { paddingBottom: bottomPad }]}
+          data={chunks}
+          keyExtractor={(x) => String(x.k)}
+          onScrollToIndexFailed={() => {}}
+          ListHeaderComponent={s !== 1 && s !== 9 ? <Text style={[s2.bism, { fontSize: st.fs }]}>{BISMILLAH}</Text> : null}
+          renderItem={({ item }) => (
+            <View style={s2.page}>
+              <Text style={[s2.arFlow, { fontSize: st.fs, lineHeight: st.fs * 2 }]}>
+                {item.list.map((x) => {
+                  const on = now && now.s === s && now.a === x.a;
+                  const pick = sel === x.a;
+                  return (
+                    <Text key={x.a} onPress={() => setSel(pick ? null : x.a)} style={on ? s2.flowOn : pick ? s2.flowSel : null}>
+                      {x.t}{' ﴿' + arNum(x.a) + '﴾ '}
+                    </Text>
+                  );
+                })}
+              </Text>
+              {st.meal && (
+                <Text style={s2.mealFlow}>
+                  {item.list.map((x) => (
+                    <Text key={x.a}><Text style={s2.mealNo}>{x.a}. </Text>{x.m + ' '}</Text>
+                  ))}
+                </Text>
+              )}
             </View>
-          );
-        }}
-      />
+          )}
+        />
+      ) : (
+        <FlatList
+          key="ayet"
+          ref={listRef}
+          contentContainerStyle={[u.page, { paddingBottom: bottomPad }]}
+          data={items}
+          keyExtractor={(x) => String(x.a)}
+          onScrollToIndexFailed={() => {}}
+          ListHeaderComponent={s !== 1 && s !== 9 ? <Text style={[s2.bism, { fontSize: st.fs }]}>{BISMILLAH}</Text> : null}
+          renderItem={({ item }) => {
+            const on = now && now.s === s && now.a === item.a;
+            const done = item.a <= readTo;
+            return (
+              <View style={[s2.ay, on && s2.ayOn]}>
+                <View style={s2.ayTop}>
+                  <View style={s2.num}><Text style={s2.numT}>{item.a}</Text></View>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pressable style={s2.act} onPress={() => onPlay(s, item.a)}><Text style={s2.actT}>▶</Text></Pressable>
+                    <Pressable style={[s2.act, done && s2.actOn]} onPress={() => onMark(s, item.a)}><Text style={[s2.actT, done && { color: '#fff' }]}>✓</Text></Pressable>
+                  </View>
+                </View>
+                <Text style={[s2.arT, { fontSize: st.fs, lineHeight: st.fs * 1.9 }]}>{item.t}</Text>
+                {st.meal && <Text style={s2.mealT}>{item.m}</Text>}
+              </View>
+            );
+          }}
+        />
+      )}
+      {flow && sel && !now && (
+        <View style={s2.player}>
+          <Text style={s2.pT} numberOfLines={1}>{sel}. ayet</Text>
+          <View style={s2.pBtns}>
+            <Pressable onPress={() => { onPlay(s, sel); setSel(null); }} hitSlop={8}><Text style={s2.pB}>▶</Text></Pressable>
+            <Pressable onPress={() => { onMark(s, sel); setSel(null); }} hitSlop={8}><Text style={s2.pB}>✓</Text></Pressable>
+          </View>
+        </View>
+      )}
       {now && (
         <View style={s2.player}>
           <Text style={s2.pT} numberOfLines={1}>{SURAH_TR[now.s - 1]} · {now.a}. ayet</Text>
@@ -288,5 +369,16 @@ const s2 = themed(() => ({
   player: { position: 'absolute', left: 12, right: 12, bottom: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.green, borderRadius: 16, padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pT: { color: C.ink, fontWeight: '700', flex: 1, marginRight: 8 },
   pBtns: { flexDirection: 'row', gap: 16 },
+  seg: { flexDirection: 'row', backgroundColor: C.line, borderRadius: 12, padding: 3, marginBottom: 10 },
+  segB: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10 },
+  segOn: { backgroundColor: C.green },
+  segT: { color: C.ink, fontWeight: '700' },
+  segTOn: { color: '#fff' },
+  page: { marginTop: 8, marginBottom: 6 },
+  arFlow: { color: C.ink, textAlign: 'right', writingDirection: 'rtl' },
+  flowOn: { backgroundColor: C.goldSoft },
+  flowSel: { backgroundColor: C.okSoft },
+  mealFlow: { color: C.muted, fontSize: 15, lineHeight: 23, marginTop: 10, marginBottom: 14 },
+  mealNo: { color: C.green, fontWeight: '800' },
   pB: { color: C.green, fontSize: 22, fontWeight: '800' },
 }));

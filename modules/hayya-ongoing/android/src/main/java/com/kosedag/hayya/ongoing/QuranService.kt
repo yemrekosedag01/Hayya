@@ -177,26 +177,100 @@ class QuranService : Service() {
     refreshNotification()
   }
 
+  private var next: MediaPlayer? = null
+  private var nextIdx = -1
+  private var nextReady = false
+  private var chained = false
+
+  private fun makePlayer(i: Int): MediaPlayer {
+    val p = MediaPlayer()
+    p.setAudioAttributes(attrs)
+    p.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK)
+    p.setDataSource(urls[i])
+    p.setOnCompletionListener { mp -> main.post { onComplete(mp, i) } }
+    p.setOnErrorListener { mp, _, _ ->
+      main.post {
+        if (mp === next) { releaseNext() }
+        else if (mp === player) {
+          releasePlayer(); playing = false
+          if (retries < 3) { retries++; main.postDelayed({ playIndex(i) }, 3000) } else { retries = 0; stopAll() }
+        }
+      }
+      true
+    }
+    return p
+  }
+
+  /** Bir sonraki ayeti arka planda hazırlar: ayetler arasında boşluk kalmaz. */
+  private fun prepareNext(j: Int) {
+    if (stopped || j >= urls.size) return
+    releaseNext()
+    try {
+      val n = makePlayer(j)
+      nextIdx = j; nextReady = false; chained = false
+      n.setOnPreparedListener {
+        if (next === it) {
+          nextReady = true
+          try { player?.setNextMediaPlayer(it); chained = true } catch (e: Exception) { chained = false }
+        }
+      }
+      next = n
+      n.prepareAsync()
+    } catch (e: Exception) { releaseNext() }
+  }
+
+  private fun releaseNext() {
+    val n = next ?: return
+    next = null; nextReady = false; chained = false; nextIdx = -1
+    try { n.reset() } catch (e: Exception) {}
+    try { n.release() } catch (e: Exception) {}
+  }
+
+  private fun onComplete(done: MediaPlayer, i: Int) {
+    if (stopped || done !== player) return
+    val n = next
+    if (n != null && nextReady && nextIdx == i + 1) {
+      val wasChained = chained
+      player = n; next = null; nextReady = false; chained = false; nextIdx = -1
+      try { done.release() } catch (e: Exception) {}
+      index = i + 1; retries = 0
+      if (!wasChained && !paused) { try { n.start() } catch (e: Exception) {} }
+      playing = !paused
+      refreshNotification()
+      prepareNext(index + 1)
+    } else {
+      playIndex(i + 1)
+    }
+  }
+
   private fun playIndex(i: Int) {
     if (stopped) return
     if (i >= urls.size) { finished = true; stopAll(); return }
     index = i; playing = false; finished = false
     refreshNotification()
     releasePlayer()
+    val n = next
+    if (n != null && nextReady && nextIdx == i) {
+      player = n; next = null; nextReady = false; chained = false; nextIdx = -1
+      if (!paused) { try { n.start() } catch (e: Exception) {} }
+      playing = !paused
+      refreshNotification()
+      prepareNext(i + 1)
+      return
+    }
+    releaseNext()
     try {
-      val p = MediaPlayer()
-      p.setAudioAttributes(attrs)
-      p.setWakeMode(this, PowerManager.PARTIAL_WAKE_LOCK)
-      p.setDataSource(urls[i])
-      p.setOnPreparedListener { retries = 0; if (!paused) { it.start(); playing = true }; refreshNotification() }
-      p.setOnCompletionListener { main.post { playIndex(i + 1) } }
-      p.setOnErrorListener { _, _, _ ->
-        releasePlayer(); playing = false
-        if (retries < 3) { retries++; main.postDelayed({ playIndex(i) }, 3000) } else { retries = 0; finished = false; stopAll() }
-        true
+      val p = makePlayer(i)
+      p.setOnPreparedListener {
+        if (player === it) {
+          retries = 0
+          if (!paused) { it.start(); playing = true }
+          refreshNotification()
+          prepareNext(i + 1)
+        }
       }
-      p.prepareAsync()
       player = p
+      p.prepareAsync()
     } catch (e: Exception) {
       if (retries < 3) { retries++; main.postDelayed({ playIndex(i) }, 3000) } else stopAll()
     }
@@ -214,6 +288,7 @@ class QuranService : Service() {
     stopped = true
     main.removeCallbacksAndMessages(null)
     releasePlayer()
+    releaseNext()
     playing = false; paused = false
     val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) focus?.let { am.abandonAudioFocusRequest(it) }
@@ -228,6 +303,7 @@ class QuranService : Service() {
     stopped = true
     main.removeCallbacksAndMessages(null)
     releasePlayer()
+    releaseNext()
     playing = false; paused = false
     super.onDestroy()
   }
