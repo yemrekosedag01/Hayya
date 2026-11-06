@@ -25,6 +25,8 @@ import HicriScreen from './src/screens/HicriScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import NotifScreen from './src/screens/NotifScreen';
 import NamazScreen from './src/screens/NamazScreen';
+import Onboarding from './src/screens/Onboarding';
+import { canExact, openExactSettings } from './modules/hayya-ongoing';
 import { SubHeader } from './src/screens/ui';
 
 const TABS = [
@@ -68,20 +70,36 @@ export default function App() {
   applyTheme(dark ? 'dark' : 'light'); // çizimden önce renkleri ayarla
   const appState = useRef(AppState.currentState);
   const asking = useRef(false);
+  const [onboarded, setOnboarded] = useState(null);
+  const [autoPick, setAutoPick] = useState(false);
 
-  // Bildirimler kapalıysa uygulamaya her girişte sor
-  const promptNotif = () => {
+  // İzinler kapalıysa uygulamaya her girişte sor: önce bildirim, o açıksa "Alarmlar ve hatırlatıcılar"
+  const promptPerms = async () => {
     if (asking.current) return;
-    asking.current = true;
-    Alert.alert(
-      '🔔 Bildirimler kapalı',
-      'Ezan vakitlerinden ve hatırlatmalardan haberdar olmak için bildirimler açılsın mı?',
-      [
-        { text: 'Şimdi değil', style: 'cancel', onPress: () => { asking.current = false; } },
-        { text: 'Aç', onPress: async () => { setNotifOk(await askNotifPermission()); asking.current = false; } },
-      ],
-      { cancelable: true, onDismiss: () => { asking.current = false; } },
-    );
+    const done = () => { asking.current = false; };
+    if (!(await notifGranted())) {
+      asking.current = true;
+      Alert.alert(
+        '🔔 Bildirimler kapalı',
+        'Ezan vakitlerinden ve hatırlatmalardan haberdar olmak için bildirimler açılsın mı?',
+        [
+          { text: 'Şimdi değil', style: 'cancel', onPress: done },
+          { text: 'Aç', onPress: async () => { setNotifOk(await askNotifPermission()); done(); } },
+        ],
+        { cancelable: true, onDismiss: done },
+      );
+    } else if (!canExact()) {
+      asking.current = true;
+      Alert.alert(
+        '⏰ Ezan tam vaktinde okunsun',
+        'Telefonunuz pil tasarrufu için ezanı birkaç dakika geciktirebilir. Bunu önlemek için "Alarmlar ve hatırlatıcılar" iznini açın.',
+        [
+          { text: 'Şimdi değil', style: 'cancel', onPress: done },
+          { text: 'İzni aç', onPress: () => { openExactSettings(); done(); } },
+        ],
+        { cancelable: true, onDismiss: done },
+      );
+    }
   };
 
   // İlk açılış: kayıtlı ayarlar + içerik
@@ -103,8 +121,10 @@ export default function App() {
       setRadio(await loadRadio(setRadio));
       const ok = await setupNotifications();
       setNotifOk(ok);
+      const ob = await load('onboarded', false);
+      setOnboarded(ob);
       setReady(true);
-      if (!ok && (await load('askedNotif', false)) && !(await notifGranted())) promptNotif();
+      if (ob) promptPerms();
       startPush();
     })();
   }, []);
@@ -143,20 +163,21 @@ export default function App() {
     const sub = AppState.addEventListener('change', async (next) => {
       const back = !!appState.current.match(/inactive|background/) && next === 'active';
       appState.current = next;
-      if (!back || !ready) return;
+      if (!back || !ready || !onboarded) return;
       // Uygulamaya dönüldü: izin durumu değişmiş olabilir (ayarlardan açıldıysa)
       const g = await notifGranted();
       if (g !== notifOk) { setNotifOk(g); return; } // değişince bildirimler zaten yeniden kurulur
-      if (!g) { promptNotif(); return; }
+      if (!g) { promptPerms(); return; }
+      if (!canExact()) promptPerms();
       scheduleAll(loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds);
       applyOngoing(ongoing, loc);
     });
     return () => sub.remove();
-  }, [ready, loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds, ongoing, notifOk]);
+  }, [ready, onboarded, loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds, ongoing, notifOk]);
 
   const screen = {
     ana: <HomeScreen loc={loc} content={content} go={setTab} radio={radio} namaz={namaz} setNamaz={setNamaz} />,
-    vakitler: <TimesScreen loc={loc} setLoc={setLoc} />,
+    vakitler: <TimesScreen loc={loc} setLoc={setLoc} autoPick={autoPick} />,
     dersler: <LessonsScreen content={content} go={setTab} />,
     quiz: <QuizScreen content={content} />,
     menu: sub ? (
@@ -188,6 +209,16 @@ export default function App() {
       <MenuScreen open={setSub} notifOk={notifOk} />
     ),
   }[tab];
+
+  // İlk kurulum ekranları
+  if (ready && onboarded === false) {
+    return (
+      <SafeAreaProvider>
+        <Onboarding dark={dark} setLoc={setLoc} setNotifOk={setNotifOk}
+          onDone={(pick) => { save('onboarded', true); setOnboarded(true); if (pick) { setAutoPick(true); setTab('vakitler'); } }} />
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>

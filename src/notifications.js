@@ -1,6 +1,5 @@
 import * as Notifications from 'expo-notifications';
 import { Platform, Linking } from 'react-native';
-import { load, save } from './storage';
 import { KEYS, NAMES, prayerTimes, trNow, addDays, toDate, hm } from './prayer';
 import { HAS_EZAN_SOUND, HAYYA_SOUND_READY } from './config';
 import { hasNativeEzan, setEzan, testEzan } from '../modules/hayya-ongoing';
@@ -53,15 +52,9 @@ export async function setupNotifications() {
       });
     }
   }
+  // İzin ilk kurulum ekranlarında (Onboarding) ya da girişteki uyarıyla istenir
   const cur = await Notifications.getPermissionsAsync();
-  if (cur.granted) return true;
-  // Sistem izni ilk açılışta bir kez sorulur; sonrasında uygulamanın kendi uyarısı sorar
-  if (!(await load('askedNotif', false))) {
-    await save('askedNotif', true);
-    const req = await Notifications.requestPermissionsAsync();
-    return req.granted;
-  }
-  return false;
+  return cur.granted;
 }
 
 /** Bildirim izni var mı? */

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet, Modal, FlatList, ActivityIndicator, TextInput } from 'react-native';
-import * as Location from 'expo-location';
+import { detectLocation } from '../location';
 import { C, themed } from '../theme';
 import { CITIES, KEYS, hm, prayerTimes, trNow, addDays } from '../prayer';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -8,8 +8,8 @@ import { Card, u } from './ui';
 
 const SHORT = { imsak: 'İmsak', gunes: 'Güneş', ogle: 'Öğle', ikindi: 'İkindi', aksam: 'Akşam', yatsi: 'Yatsı' };
 
-export default function TimesScreen({ loc, setLoc }) {
-  const [picker, setPicker] = useState(false);
+export default function TimesScreen({ loc, setLoc, autoPick }) {
+  const [picker, setPicker] = useState(!!autoPick); // ilk kurulumda "listeden seçeceğim" denirse açık gelir
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [query, setQuery] = useState('');
@@ -23,22 +23,9 @@ export default function TimesScreen({ loc, setLoc }) {
 
   const useGps = async () => {
     setErr(''); setBusy(true);
-    try {
-      const p = await Location.requestForegroundPermissionsAsync();
-      if (!p.granted) { setErr('Konum izni verilmedi. Listeden şehir seçebilirsiniz.'); return; }
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      let name = 'Konumum';
-      try {
-        const [g] = await Location.reverseGeocodeAsync(pos.coords);
-        if (g) name = g.subregion || g.district || g.city || g.region || name;
-      } catch (e) {}
-      setLoc({ name, lat: pos.coords.latitude, lng: pos.coords.longitude });
-      closePicker();
-    } catch (e) {
-      setErr('Konum alınamadı. Konum servisinin açık olduğundan emin olun.');
-    } finally {
-      setBusy(false);
-    }
+    const r = await detectLocation();
+    setBusy(false);
+    if (r.loc) { setLoc(r.loc); closePicker(); } else setErr(r.error);
   };
 
   return (
