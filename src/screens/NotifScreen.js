@@ -1,25 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, Pressable, Linking, Modal } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { SOUNDS, soundLabel } from '../sounds';
+import { SOUNDS, soundLabel, isLong, REM_MINUTES } from '../sounds';
 import { previewSound, stopPreview, isPreviewing, canExact, openExactSettings } from '../../modules/hayya-ongoing';
 import { AppState } from 'react-native';
 import { C, themed } from '../theme';
 import { KEYS, NAMES } from '../prayer';
 import { testNotification } from '../notifications';
 import { HAS_EZAN_SOUND } from '../config';
-import { Card, Seg, u } from './ui';
+import { Card, u } from './ui';
 
-const MODES = [['off', 'Kapalı'], ['bildirim', 'Bildirim'], ['ezan', 'Ezan']];
-const PRE = [0, 10, 15, 30, 45];
-
-export default function NotifScreen({ loc, alarms, setAlarms, pre, setPre, notifOk, retryNotif, soundMode, vibNotif, ezanSounds, setEzanSounds, remSounds, setRemSounds }) {
-  const [pick, setPick] = useState(null); // ses seçilen vakit
+export default function NotifScreen({ loc, vakitSnd, setVakitSnd, hatirlatma, setHatirlatma, notifOk, retryNotif, vibNotif }) {
+  const [pick, setPick] = useState(null); // { kind: 'rem' | 'vakit', k }
   const [exact, setExact] = useState(() => canExact());
   useEffect(() => {
     const sub = AppState.addEventListener('change', (st) => { if (st === 'active') setExact(canExact()); });
     return () => sub.remove();
   }, []);
+  const setRem = (k, patch) => setHatirlatma({ ...hatirlatma, [k]: { ...hatirlatma[k], ...patch } });
+  const ezanTest = isLong(vakitSnd.ogle) ? vakitSnd.ogle : 'ezan';
   return (
     <ScrollView contentContainerStyle={u.page}>
       {!exact && (
@@ -30,7 +29,7 @@ export default function NotifScreen({ loc, alarms, setAlarms, pre, setPre, notif
         </Card>
       )}
       {!notifOk && (
-        <Card style={{ marginTop: 0, borderColor: C.bad }}>
+        <Card style={{ marginTop: 0, marginBottom: 14, borderColor: C.bad }}>
           <Text style={[u.quote, { fontSize: 16, marginTop: 0 }]}>Bildirim izni kapalı. Vakit uyarıları için izin verin.</Text>
           <Pressable style={u.btn} onPress={retryNotif}><Text style={u.btnTxt}>İzin ver</Text></Pressable>
           <Pressable style={[u.btn, u.btnGhost]} onPress={() => Linking.openSettings()}>
@@ -39,40 +38,43 @@ export default function NotifScreen({ loc, alarms, setAlarms, pre, setPre, notif
         </Card>
       )}
 
-      <Card title="🕌 Vakit uyarıları" style={{ marginTop: notifOk ? 0 : 14 }}>
+      <Card title="⏰ Vakitten önce hatırlatma" style={{ marginTop: 0 }}>
+        {KEYS.map((k, i) => {
+          const r = hatirlatma[k];
+          const off = r.snd === 'off';
+          return (
+            <View key={k} style={[s.row, i === KEYS.length - 1 && { borderBottomWidth: 0 }]}>
+              <Text style={s.name}>{NAMES[k]}</Text>
+              <View style={[s.mins, off && { opacity: 0.35 }]}>
+                {REM_MINUTES.map((m) => (
+                  <Pressable key={m} onPress={() => setRem(k, { min: m })} style={[s.min, r.min === m && s.minOn]} hitSlop={4}>
+                    <Text style={[s.minT, r.min === m && { color: '#fff' }]}>{m}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <SoundBtn value={r.snd} onPress={() => setPick({ kind: 'rem', k })} />
+            </View>
+          );
+        })}
+        <Text style={u.tip}>Sayılar, vakitten kaç dakika önce hatırlatılacağını gösterir. Sesi "Kapalı" yaparsanız o vakit için hatırlatma gelmez.</Text>
+      </Card>
+
+      <Card title="🕌 Vakit girince">
         {KEYS.map((k, i) => (
           <View key={k} style={[s.row, i === KEYS.length - 1 && { borderBottomWidth: 0 }]}>
             <Text style={s.name}>{NAMES[k]}</Text>
-            <Seg items={MODES} value={alarms[k]} onChange={(m) => setAlarms({ ...alarms, [k]: m })} />
+            <View style={{ flex: 1 }} />
+            <SoundBtn value={vakitSnd[k]} wide onPress={() => setPick({ kind: 'vakit', k })} />
           </View>
         ))}
+        <Text style={u.tip}>Ezanlar çalarken ses tuşlarıyla kısılır, bildirimdeki "Sustur" düğmesiyle susturulur.</Text>
       </Card>
 
-      <Card title="⏰ Vakitten önce hatırlat">
-        <View style={{ marginTop: 12 }}>
-          <Seg items={PRE.map((v) => [v, v ? `${v} dk` : 'Yok'])} value={pre} onChange={setPre} />
-        </View>
-      </Card>
-
-      <Card title="🎵 Sesler">
-        <Text style={u.tip}>Her vakit için ezan sesini ve hatırlatma sesini seçebilirsiniz. Ezan sesi, vakit "Ezan" seçiliyken çalar.</Text>
-        {KEYS.map((k, i) => (
-          <Pressable key={k} onPress={() => setPick(k)} style={[s.row, i === KEYS.length - 1 && { borderBottomWidth: 0 }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.name}>{NAMES[k]}</Text>
-              <Text style={s.snd}>🕌 {soundLabel(ezanSounds[k])}</Text>
-              {k !== 'gunes' && <Text style={s.snd}>⏰ {soundLabel(remSounds[k])}</Text>}
-            </View>
-            <Text style={s.ch}>Değiştir ›</Text>
-          </Pressable>
-        ))}
-      </Card>
-
-      <Pressable style={u.btn} onPress={() => testNotification(loc, false, soundMode, vibNotif)}>
+      <Pressable style={u.btn} onPress={() => testNotification(loc, false, 'hayya', vibNotif)}>
         <Text style={u.btnTxt}>🔔 Deneme bildirimi gönder</Text>
       </Pressable>
       {HAS_EZAN_SOUND && (
-        <Pressable style={[u.btn, u.btnGhost]} onPress={() => testNotification(loc, true, soundMode, vibNotif, ezanSounds.ogle)}>
+        <Pressable style={[u.btn, u.btnGhost]} onPress={() => testNotification(loc, true, 'hayya', vibNotif, ezanTest)}>
           <Text style={[u.btnTxt, { color: C.green }]}>🕌 Ezan sesini dene (bildirimle)</Text>
         </Pressable>
       )}
@@ -83,14 +85,24 @@ export default function NotifScreen({ loc, alarms, setAlarms, pre, setPre, notif
           <Text style={[u.btnTxt, { color: C.green }]}>Uygulama ayarlarını aç</Text>
         </Pressable>
       </Card>
-      <SoundPicker vakit={pick} onClose={() => setPick(null)}
-        ezan={pick ? ezanSounds[pick] : null} setEzan={(v) => setEzanSounds({ ...ezanSounds, [pick]: v })}
-        rem={pick ? remSounds[pick] : null} setRem={(v) => setRemSounds({ ...remSounds, [pick]: v })} />
+      <SoundPicker pick={pick} onClose={() => setPick(null)}
+        value={pick ? (pick.kind === 'rem' ? hatirlatma[pick.k].snd : vakitSnd[pick.k]) : null}
+        onChange={(v) => { if (pick.kind === 'rem') setRem(pick.k, { snd: v }); else setVakitSnd({ ...vakitSnd, [pick.k]: v }); }} />
     </ScrollView>
   );
 }
 
-function SoundPicker({ vakit, onClose, ezan, setEzan, rem, setRem }) {
+function SoundBtn({ value, onPress, wide }) {
+  const off = value === 'off';
+  return (
+    <Pressable onPress={onPress} style={[s.sb, wide && { minWidth: 150 }, off && s.sbOff]} hitSlop={4}>
+      <Text style={[s.sbT, off && { color: C.muted }]} numberOfLines={1}>{off ? 'Kapalı' : soundLabel(value)}</Text>
+      <Text style={[s.sbT, { color: C.muted }]}> ▾</Text>
+    </Pressable>
+  );
+}
+
+function SoundPicker({ pick, onClose, value, onChange }) {
   const [playing, setPlaying] = useState(null);
   useEffect(() => {
     if (!playing) return;
@@ -102,34 +114,33 @@ function SoundPicker({ vakit, onClose, ezan, setEzan, rem, setRem }) {
     if (playing === id) { stopPreview(); setPlaying(null); return; }
     previewSound(id); setPlaying(id);
   };
-  const section = (title, value, set) => (
-    <View style={{ marginTop: 16 }}>
-      <Text style={u.cardTitle}>{title}</Text>
-      {SOUNDS.map((o) => (
-        <View key={o.id} style={s.opt}>
-          <Pressable style={s.optMain} onPress={() => set(o.id)}>
-            <Text style={[s.radio, value === o.id && { color: C.green }]}>{value === o.id ? '◉' : '○'}</Text>
-            <Text style={[s.optT, value === o.id && { color: C.green }]}>{o.label}</Text>
-          </Pressable>
-          <Pressable style={s.play} onPress={() => listen(o.id)} hitSlop={6} accessibilityLabel={o.label + ' dinle'}>
-            <Text style={s.playT}>{playing === o.id ? '■' : '▶'}</Text>
-          </Pressable>
-        </View>
-      ))}
-    </View>
-  );
+  const opts = [{ id: 'off', label: 'Kapalı' }, ...SOUNDS];
   return (
-    <Modal visible={!!vakit} animationType="slide" onRequestClose={close}>
+    <Modal visible={!!pick} animationType="slide" onRequestClose={close}>
       <SafeAreaProvider>
         <SafeAreaView style={s.sheet} edges={['top', 'bottom', 'left', 'right']}>
           <View style={s.sheetHead}>
-            <Text style={[u.h2, { marginBottom: 0 }]}>{vakit ? NAMES[vakit] : ''} sesleri</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[u.h2, { marginBottom: 0 }]}>{pick ? NAMES[pick.k] : ''}</Text>
+              <Text style={u.src}>{pick && pick.kind === 'rem' ? 'Vakitten önce hatırlatma sesi' : 'Vakit girince çalacak ses'}</Text>
+            </View>
             <Pressable onPress={close} style={s.close}><Text style={s.closeT}>Tamam</Text></Pressable>
           </View>
-          <ScrollView>
-            {section('🕌 Ezan vaktinde', ezan, setEzan)}
-            {vakit !== 'gunes' && section('⏰ Vakitten önce hatırlatmada', rem, setRem)}
-            <Text style={[u.tip, { marginTop: 14 }]}>▶ ile dinleyebilirsiniz. Ezanlar çalarken ses tuşlarıyla kısılır, bildirimdeki "Sustur" düğmesiyle susturulur.</Text>
+          <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+            {opts.map((o) => (
+              <View key={o.id} style={s.opt}>
+                <Pressable style={s.optMain} onPress={() => onChange(o.id)}>
+                  <Text style={[s.radio, value === o.id && { color: C.green }]}>{value === o.id ? '◉' : '○'}</Text>
+                  <Text style={[s.optT, value === o.id && { color: C.green }]}>{o.label}</Text>
+                </Pressable>
+                {o.id !== 'off' && (
+                  <Pressable style={s.play} onPress={() => listen(o.id)} hitSlop={6} accessibilityLabel={o.label + ' dinle'}>
+                    <Text style={s.playT}>{playing === o.id ? '■' : '▶'}</Text>
+                  </Pressable>
+                )}
+              </View>
+            ))}
+            <Text style={[u.tip, { marginTop: 14 }]}>▶ ile dinleyebilirsiniz.</Text>
           </ScrollView>
         </SafeAreaView>
       </SafeAreaProvider>
@@ -138,8 +149,15 @@ function SoundPicker({ vakit, onClose, ezan, setEzan, rem, setRem }) {
 }
 
 const s = themed(() => ({
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line },
-  name: { fontSize: 16, fontWeight: '800', color: C.ink },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line },
+  name: { width: 58, fontSize: 15, fontWeight: '800', color: C.ink },
+  mins: { flexDirection: 'row', backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 10, padding: 2 },
+  min: { paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8 },
+  minOn: { backgroundColor: C.primary },
+  minT: { fontSize: 13, fontWeight: '800', color: C.muted },
+  sb: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', backgroundColor: C.card, borderWidth: 1, borderColor: C.green, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 10 },
+  sbOff: { borderColor: C.line, backgroundColor: C.bg },
+  sbT: { fontSize: 13, fontWeight: '800', color: C.green, flexShrink: 1 },
   snd: { fontSize: 13, fontWeight: '700', color: C.muted, marginTop: 2 },
   ch: { fontSize: 14, fontWeight: '800', color: C.green },
   sheet: { flex: 1, backgroundColor: C.bg, paddingHorizontal: 16, paddingTop: 8 },

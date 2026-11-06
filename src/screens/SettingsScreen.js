@@ -1,10 +1,9 @@
 import React from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { C } from '../theme';
-import { HAYYA_SOUND_READY } from '../config';
 import { Card, Seg, u } from './ui';
 
-export default function SettingsScreen({ theme, setTheme, vibNotif, setVibNotif, vibZikir, setVibZikir, soundMode, setSoundMode, ongoing, setOngoing }) {
+export default function SettingsScreen({ theme, setTheme, vibNotif, setVibNotif, vibZikir, setVibZikir, ongoing, setOngoing }) {
   return (
     <ScrollView contentContainerStyle={u.page}>
       <Card title="🌓 Görünüm" style={{ marginTop: 0 }}>
@@ -28,14 +27,6 @@ export default function SettingsScreen({ theme, setTheme, vibNotif, setVibNotif,
         <Text style={u.tip}>Bildirim çubuğunda bir sonraki vakte kalan süre ve günün vakitleri görünür. Kaydırıp kapatırsanız 3 dakika sonra yeniden gelir; 20 dakika içinde 5 kez kaydırırsanız 30 dakika gizli kalır.</Text>
       </Card>
 
-      {HAYYA_SOUND_READY && (
-        <Card title="🔔 Bildirim sesi">
-          <View style={{ marginTop: 12 }}>
-            <Seg items={[['hayya', 'Hayya sesi'], ['sistem', 'Telefonun sesi']]} value={soundMode} onChange={setSoundMode} />
-          </View>
-          <Text style={u.tip}>"Bildirim" seçili vakitlerde ve hatırlatmalarda çalar. Ezan seçili vakitlerde ezan okunur.</Text>
-        </Card>
-      )}
 
     </ScrollView>
   );

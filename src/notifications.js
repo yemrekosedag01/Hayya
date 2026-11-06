@@ -3,7 +3,7 @@ import { Platform, Linking } from 'react-native';
 import { KEYS, NAMES, prayerTimes, trNow, addDays, toDate, hm } from './prayer';
 import { HAS_EZAN_SOUND, HAYYA_SOUND_READY } from './config';
 import { hasNativeEzan, setEzan, testEzan } from '../modules/hayya-ongoing';
-import { isLong, DEFAULT_EZAN_SOUNDS, DEFAULT_REM_SOUNDS } from './sounds';
+import { isLong, DEFAULT_VAKIT_SND, DEFAULT_HATIRLATMA } from './sounds';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -77,10 +77,11 @@ export async function askNotifPermission() {
 
 /**
  * Önümüzdeki 14 günün vakit bildirimlerini yeniden kurar.
- * alarms: { imsak: 'off' | 'bildirim' | 'ezan', ... }, pre: dakika (0 = yok), soundMode: 'hayya' | 'sistem' (Bildirim modu sesi)
- * ezanSounds / remSounds: vakit başına ezan ve hatırlatma sesi (sounds.js), vib: titreşim
+ * vakitSnd: { imsak: 'off' | ses, ... } — vakit girince çalacak ses
+ * hatirlatma: { imsak: { min: 15|30|45, snd: 'off' | ses }, ... } — vakitten önce
+ * vib: titreşim
  */
-export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya', vib = true, ezanSounds = DEFAULT_EZAN_SOUNDS, remSounds = DEFAULT_REM_SOUNDS) {
+export async function scheduleAll(loc, vakitSnd = DEFAULT_VAKIT_SND, hatirlatma = DEFAULT_HATIRLATMA, vib = true) {
   await Notifications.cancelAllScheduledNotificationsAsync();
   const now = Date.now();
   const today = trNow();
@@ -111,17 +112,18 @@ export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya', vib = t
     const day = addDays(today, i);
     const t = prayerTimes(day, loc.lat, loc.lng);
     for (const k of KEYS) {
-      const mode = alarms[k] || 'off';
-      if (mode === 'off') continue;
       const at = toDate(day, t[k]);
-      const title = k === 'gunes' ? `Güneş doğdu · ${hm(t[k])}` : `${NAMES[k]} vakti girdi · ${hm(t[k])}`;
-      const body = k === 'gunes' ? `${loc.name}: Kerahat vakti başladı.` : `${loc.name} için ${NAMES[k]} vakti. Hayya ale's-salâh!`;
-      // "Bildirim" modunda Ayarlar'daki bildirim sesi, "Ezan" modunda o vaktin seçili sesi
-      const sndId = mode === 'ezan' ? (ezanSounds[k] || DEFAULT_EZAN_SOUNDS[k]) : (effMode(soundMode) === 'sistem' ? 'default' : 'hayya_ses');
-      add(at, title, body, sndId, 'vakit');
-      if (pre > 0 && k !== 'gunes') {
-        add(new Date(at.getTime() - pre * 60000), `${NAMES[k]} vaktine ${pre} dakika`, `${loc.name} · ${NAMES[k]} ${hm(t[k])}`,
-          remSounds[k] || DEFAULT_REM_SOUNDS[k], 'hatirlatma');
+      const snd = vakitSnd[k] || 'off';
+      if (snd !== 'off') {
+        const title = k === 'gunes' ? `Güneş doğdu · ${hm(t[k])}` : `${NAMES[k]} vakti girdi · ${hm(t[k])}`;
+        const body = k === 'gunes' ? `${loc.name}: Kerahat vakti başladı.` : `${loc.name} için ${NAMES[k]} vakti. Hayya ale's-salâh!`;
+        add(at, title, body, snd, 'vakit');
+      }
+      const r = hatirlatma[k];
+      if (r && r.snd && r.snd !== 'off') {
+        const title = k === 'gunes' ? `Güneşin doğmasına ${r.min} dakika` : `${NAMES[k]} vaktine ${r.min} dakika`;
+        const body = k === 'gunes' ? `${loc.name} · Güneş ${hm(t[k])} · Sabah namazının vakti çıkmak üzere.` : `${loc.name} · ${NAMES[k]} ${hm(t[k])}`;
+        add(new Date(at.getTime() - r.min * 60000), title, body, r.snd, 'hatirlatma');
       }
     }
   }

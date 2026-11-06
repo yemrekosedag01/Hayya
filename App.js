@@ -7,7 +7,7 @@ import { CITIES } from './src/prayer';
 import { load, save } from './src/storage';
 import { loadContent } from './src/content';
 import { loadRadio } from './src/radio';
-import { DEFAULT_EZAN_SOUNDS, DEFAULT_REM_SOUNDS } from './src/sounds';
+import { DEFAULT_VAKIT_SND, DEFAULT_HATIRLATMA, migrateSounds } from './src/sounds';
 import { setupNotifications, scheduleAll, notifGranted, askNotifPermission } from './src/notifications';
 import { startPush, setPushCity } from './src/push';
 import { applyOngoing } from './src/ongoing';
@@ -42,15 +42,13 @@ const SUB_TITLES = {
   hicri: 'Hicri Takvim', ayarlar: 'Ayarlar', hakkinda: 'Hakkında ve Gizlilik',
 };
 
-const DEFAULT_ALARMS = { imsak: 'ezan', gunes: 'off', ogle: 'ezan', ikindi: 'ezan', aksam: 'ezan', yatsi: 'ezan' };
 
 export default function App() {
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState('ana');
   const [loc, setLoc] = useState(CITIES[0]);
-  const [alarms, setAlarms] = useState(DEFAULT_ALARMS);
-  const [pre, setPre] = useState(15);
-  const [soundMode, setSoundMode] = useState('hayya');
+  const [vakitSnd, setVakitSnd] = useState(DEFAULT_VAKIT_SND);
+  const [hatirlatma, setHatirlatma] = useState(DEFAULT_HATIRLATMA);
   const [ongoing, setOngoing] = useState(true);
   const [content, setContent] = useState({ dersler: [], sorular: [], ayetler: [], hadisler: [] });
   const [notifOk, setNotifOk] = useState(true);
@@ -59,8 +57,6 @@ export default function App() {
   const [theme, setTheme] = useState('auto');
   const [vibNotif, setVibNotif] = useState(true);
   const [vibZikir, setVibZikir] = useState(true);
-  const [ezanSounds, setEzanSounds] = useState(DEFAULT_EZAN_SOUNDS);
-  const [remSounds, setRemSounds] = useState(DEFAULT_REM_SOUNDS);
   const [namaz, setNamazS] = useState({});
   const [kaza, setKazaS] = useState({});
   const setNamaz = (v) => { setNamazS(v); save('namaz', v); };
@@ -106,15 +102,20 @@ export default function App() {
   useEffect(() => {
     (async () => {
       setLoc(await load('loc', CITIES[0]));
-      setAlarms({ ...DEFAULT_ALARMS, ...(await load('alarms', {})) });
-      setPre(await load('pre', 15));
-      setSoundMode(await load('soundMode', 'hayya'));
+      // Ses ayarları: yeni yapı yoksa eski ayarlardan taşı
+      const vs = await load('vakitSnd', null);
+      if (vs) {
+        setVakitSnd({ ...DEFAULT_VAKIT_SND, ...vs });
+        setHatirlatma({ ...DEFAULT_HATIRLATMA, ...(await load('hatirlatma', {})) });
+      } else {
+        const m = migrateSounds({ alarms: await load('alarms', null), pre: await load('pre', null), soundMode: await load('soundMode', 'hayya'),
+          ezanSounds: await load('ezanSounds', {}), remSounds: await load('remSounds', {}) });
+        setVakitSnd(m.vakitSnd); setHatirlatma(m.hatirlatma);
+      }
       setOngoing(await load('ongoing', true));
       setTheme(await load('theme', 'auto'));
       setVibNotif(await load('vibNotif', true));
       setVibZikir(await load('vibZikir', true));
-      setEzanSounds({ ...DEFAULT_EZAN_SOUNDS, ...(await load('ezanSounds', {})) });
-      setRemSounds({ ...DEFAULT_REM_SOUNDS, ...(await load('remSounds', {})) });
       setNamazS(await load('namaz', {}));
       setKazaS(await load('kaza', {}));
       setContent(await loadContent(setContent));
@@ -132,10 +133,9 @@ export default function App() {
   // Konum / ayar değişince bildirimleri yeniden kur
   useEffect(() => {
     if (!ready) return;
-    save('loc', loc); save('alarms', alarms); save('pre', pre); save('soundMode', soundMode);
-    save('vibNotif', vibNotif); save('ezanSounds', ezanSounds); save('remSounds', remSounds);
-    if (notifOk) scheduleAll(loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds);
-  }, [ready, loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds, notifOk]);
+    save('loc', loc); save('vakitSnd', vakitSnd); save('hatirlatma', hatirlatma); save('vibNotif', vibNotif);
+    if (notifOk) scheduleAll(loc, vakitSnd, hatirlatma, vibNotif);
+  }, [ready, loc, vakitSnd, hatirlatma, vibNotif, notifOk]);
 
   useEffect(() => { if (ready) { save('theme', theme); save('vibZikir', vibZikir); } }, [ready, theme, vibZikir]);
 
@@ -169,11 +169,11 @@ export default function App() {
       if (g !== notifOk) { setNotifOk(g); return; } // değişince bildirimler zaten yeniden kurulur
       if (!g) { promptPerms(); return; }
       if (!canExact()) promptPerms();
-      scheduleAll(loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds);
+      scheduleAll(loc, vakitSnd, hatirlatma, vibNotif);
       applyOngoing(ongoing, loc);
     });
     return () => sub.remove();
-  }, [ready, onboarded, loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds, ongoing, notifOk]);
+  }, [ready, onboarded, loc, vakitSnd, hatirlatma, vibNotif, ongoing, notifOk]);
 
   const screen = {
     ana: <HomeScreen loc={loc} content={content} go={setTab} radio={radio} namaz={namaz} setNamaz={setNamaz} />,
@@ -186,9 +186,8 @@ export default function App() {
         <View style={{ flex: 1 }}>
           {{
             bildirim: (
-              <NotifScreen loc={loc} alarms={alarms} setAlarms={setAlarms} pre={pre} setPre={setPre} notifOk={notifOk}
-                retryNotif={async () => setNotifOk(await askNotifPermission())} soundMode={soundMode} vibNotif={vibNotif}
-                ezanSounds={ezanSounds} setEzanSounds={setEzanSounds} remSounds={remSounds} setRemSounds={setRemSounds} />
+              <NotifScreen loc={loc} vakitSnd={vakitSnd} setVakitSnd={setVakitSnd} hatirlatma={hatirlatma} setHatirlatma={setHatirlatma}
+                notifOk={notifOk} retryNotif={async () => setNotifOk(await askNotifPermission())} vibNotif={vibNotif} />
             ),
             namaz: <NamazScreen loc={loc} namaz={namaz} setNamaz={setNamaz} kaza={kaza} setKaza={setKaza} />,
             zikir: <ZikirScreen vibZikir={vibZikir} />,
@@ -199,7 +198,7 @@ export default function App() {
             hakkinda: <AboutScreen />,
             ayarlar: (
               <SettingsScreen theme={theme} setTheme={setTheme} vibNotif={vibNotif} setVibNotif={setVibNotif}
-                vibZikir={vibZikir} setVibZikir={setVibZikir} soundMode={soundMode} setSoundMode={setSoundMode}
+                vibZikir={vibZikir} setVibZikir={setVibZikir}
                 ongoing={ongoing} setOngoing={setOngoing} />
             ),
           }[sub]}
