@@ -21,6 +21,7 @@ import MenuScreen from './src/screens/MenuScreen';
 import ZikirScreen from './src/screens/ZikirScreen';
 import QiblaScreen from './src/screens/QiblaScreen';
 import EsmaScreen from './src/screens/EsmaScreen';
+import QuranScreen from './src/screens/QuranScreen';
 import DiniGunlerScreen from './src/screens/DiniGunlerScreen';
 import HicriScreen from './src/screens/HicriScreen';
 import AboutScreen from './src/screens/AboutScreen';
@@ -33,6 +34,7 @@ import { SubHeader } from './src/screens/ui';
 const TABS = [
   { key: 'ana', icon: '🕌', label: 'Ana Sayfa' },
   { key: 'vakitler', icon: '🕰️', label: 'Vakitler' },
+  { key: 'kuran', icon: '📖', label: 'Kuran' },
   { key: 'dersler', icon: '📚', label: 'Dersler' },
   { key: 'quiz', icon: '🎯', label: 'Quiz' },
   { key: 'menu', icon: '☰', label: '' },
@@ -184,6 +186,8 @@ export default function App() {
     return () => sub.remove();
   }, [ready, onboarded, loc, vakitSnd, hatirlatma, vibNotif, ongoing, notifOk]);
 
+  const quranSeen = useRef(false);
+  if (tab === 'kuran') quranSeen.current = true;
   const screen = {
     ana: <HomeScreen loc={loc} content={content} go={setTab} radio={radio} namaz={namaz} setNamaz={setNamaz} />,
     vakitler: <TimesScreen loc={loc} setLoc={setLoc} autoPick={autoPick} />,
@@ -242,7 +246,13 @@ export default function App() {
             <Text style={s.chipTxt}>📍 {loc.name}</Text>
           </Pressable>
         </View>
-        <View style={{ flex: 1 }}>{ready ? screen : null}</View>
+        <View style={{ flex: 1 }}>
+          {ready && tab !== 'kuran' ? screen : null}
+          {/* Kuran sekmesi bir kez açılınca arka planda kalır: ses sekme değişince kesilmez */}
+          {quranSeen.current && (
+            <View style={tab === 'kuran' ? { flex: 1 } : { display: 'none' }}><QuranScreen /></View>
+          )}
+        </View>
         <SafeAreaView edges={['bottom']} style={s.tabs}>
           <View style={s.tabRow}>
             {TABS.map((t) => (

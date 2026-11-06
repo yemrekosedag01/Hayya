@@ -31,6 +31,8 @@ class RadioService : Service() {
   companion object {
     const val ACTION_START = "com.kosedag.hayya.radio.START"
     const val ACTION_STOP = "com.kosedag.hayya.radio.STOP"
+    private const val OTHER_AUDIO_WAIT_MS = 2 * 60 * 1000L
+    private const val STOPPED_NOTIF_TTL_MS = 30 * 60 * 1000L
     const val NOTIF_ID = 7704
     const val CHANNEL = "radyo-v1"
     private const val PREFS = "hayya_radio"
@@ -57,6 +59,8 @@ class RadioService : Service() {
   private var epoch = 0L
   private var index = -1
   private var pausedByFocus = false
+  private var pauseReason = "ezan" // ezan | arama | diger
+  private var otherSince = 0L
   private var stopped = true
 
   private val attrs: AudioAttributes = AudioAttributes.Builder()
@@ -108,7 +112,9 @@ class RadioService : Service() {
     val stopPi = PendingIntent.getService(this, 41, Intent(this, RadioService::class.java).setAction(ACTION_STOP),
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     val text = when {
-      pausedByFocus -> "Ezan okunuyor · ardından devam edecek"
+      pausedByFocus && pauseReason == "ezan" -> "🕌 Ezan okunuyor · bitince devam edecek"
+      pausedByFocus && pauseReason == "arama" -> "📞 Arama sürüyor · bitince devam edecek"
+      pausedByFocus -> "⏸ Telefonunuzda başka bir ses çalıyor · radyo duraklatıldı"
       buffering -> "Bağlanıyor…"
       else -> listOf(nowTitle, nowSub).filter { it.isNotEmpty() }.joinToString(" · ")
     }
@@ -164,13 +170,29 @@ class RadioService : Service() {
 
   private fun onFocus(change: Int) {
     when (change) {
-      AudioManager.AUDIOFOCUS_LOSS -> stopAll() // başka uygulama müzik açtı
+      AudioManager.AUDIOFOCUS_LOSS -> {
+        // Başka uygulama (YouTube, Instagram, müzik…) sesi aldı: bekle, kısa sürerse devam et
+        pauseReason = "diger"
+        pausedByFocus = true
+        otherSince = System.currentTimeMillis()
+        releasePlayer()
+        playing = false; buffering = false
+        refreshNotification()
+        main.removeCallbacks(otherPoll)
+        main.postDelayed(otherPoll, 3000)
+      }
       AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
         // Bildirim sesi: radyo durmaz, sesi kısılır (eski Android sürümleri için elle)
         try { player?.setVolume(0.2f, 0.2f) } catch (e: Exception) {}
       }
       AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-        pausedByFocus = true // ezan ya da arama
+        pausedByFocus = true // ezan, arama ya da kısa süreli başka ses
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        pauseReason = when {
+          EzanService.active -> "ezan"
+          am.mode == AudioManager.MODE_IN_CALL || am.mode == AudioManager.MODE_RINGTONE || am.mode == AudioManager.MODE_IN_COMMUNICATION -> "arama"
+          else -> "diger"
+        }
         releasePlayer()
         playing = false
         refreshNotification()
@@ -180,6 +202,51 @@ class RadioService : Service() {
         if (pausedByFocus) { pausedByFocus = false; playLive(-1) }
       }
     }
+  }
+
+  /** Başka uygulama sesi bitince (2 dk içinde) radyoya döner, bitmezse durdurur. */
+  private val otherPoll = object : Runnable {
+    override fun run() {
+      if (stopped || !pausedByFocus || pauseReason != "diger") return
+      val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+      val busy = am.isMusicActive || am.mode == AudioManager.MODE_IN_CALL || am.mode == AudioManager.MODE_IN_COMMUNICATION
+      val waited = System.currentTimeMillis() - otherSince
+      when {
+        !busy && waited > 1500 -> { pausedByFocus = false; requestFocus(); playLive(-1) }
+        waited >= OTHER_AUDIO_WAIT_MS -> stopWithResume()
+        else -> main.postDelayed(this, 2000)
+      }
+    }
+  }
+
+  /** Radyoyu bırakır, bildirimde "Devam et" kalır (30 dk sonra kendiliğinden silinir). */
+  private fun stopWithResume() {
+    val keepText = "Radyo durduruldu · başka bir ses çalıyordu"
+    stopped = true
+    main.removeCallbacksAndMessages(null)
+    releasePlayer()
+    playing = false; buffering = false; pausedByFocus = false
+    val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) focus?.let { am.abandonAudioFocusRequest(it) }
+    focus = null
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_DETACH)
+    else { @Suppress("DEPRECATION") stopForeground(false) }
+    val startIntent = Intent(this, RadioService::class.java).setAction(ACTION_START)
+    val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    val resumePi = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) PendingIntent.getForegroundService(this, 42, startIntent, flags)
+      else PendingIntent.getService(this, 42, startIntent, flags)
+    val b = NotificationCompat.Builder(this, CHANNEL)
+      .setSmallIcon(Ezan.icon(this))
+      .setContentTitle("📻 Hayya Radyo")
+      .setContentText(keepText)
+      .setOngoing(false)
+      .setAutoCancel(true)
+      .setSilent(true)
+      .setTimeoutAfter(STOPPED_NOTIF_TTL_MS)
+      .addAction(0, "▶ Devam et", resumePi)
+    Ezan.openIntent(this)?.let { b.setContentIntent(it) }
+    try { NotificationManagerCompat.from(this).notify(NOTIF_ID, b.build()) } catch (e: SecurityException) {}
+    stopSelf()
   }
 
   /** Saate göre o anki yerden çalar. finished: az önce biten parça (saat geride kaldıysa bir sonrakine geç). */

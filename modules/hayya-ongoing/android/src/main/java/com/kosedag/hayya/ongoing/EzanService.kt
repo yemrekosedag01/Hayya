@@ -28,6 +28,7 @@ class EzanService : Service() {
     const val NOTIF_ID = 7702
     const val CH_VIB = "ezan-calar-v1"
     const val CH_NOVIB = "ezan-calar-nv-v1"
+    @Volatile var active = false
   }
 
   private var player: MediaPlayer? = null
@@ -69,6 +70,7 @@ class EzanService : Service() {
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     if (intent?.action == ACTION_STOP) { finish(); return START_NOT_STICKY }
+    active = true
     // Yeni ezan gelirse öncekini bırak
     releasePlayer()
     finished = false
@@ -198,6 +200,7 @@ class EzanService : Service() {
   }
 
   private fun finish() {
+    active = false
     if (finished) return
     finished = true
     releasePlayer()
@@ -213,6 +216,7 @@ class EzanService : Service() {
   }
 
   override fun onDestroy() {
+    active = false
     releasePlayer()
     super.onDestroy()
   }

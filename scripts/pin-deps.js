@@ -7,7 +7,7 @@ const want = [
   'react', 'react-native', 'expo-notifications', 'expo-location', 'expo-status-bar',
   'expo-constants', '@react-native-async-storage/async-storage',
   'react-native-safe-area-context', 'react-native-svg', 'expo-system-ui',
-  'react-native-view-shot', 'expo-sharing',
+  'react-native-view-shot', 'expo-sharing', 'expo-audio',
 ];
 pkg.dependencies = { expo: '~' + expoVersion };
 for (const name of want) {

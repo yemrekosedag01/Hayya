@@ -124,7 +124,7 @@ export function buildContent({ dersler, adimlar, sorular, ayetler, hadisler }) {
     }))
     .filter((s) => s.opts.every((o) => o));
   const verses = ayetler.filter((a) => approved(a['onaylı']) && a['meal']).map((a) => ({ text: a['meal'], src: a['kaynak'], v: vakitOf(a['vakit']) }));
-  const hadith = hadisler.filter((h) => approved(h['onaylı']) && h['hadis']).map((h) => ({ text: h['hadis'], src: h['kaynak'], v: vakitOf(h['vakit']) }));
+  const hadith = hadisler.filter((h) => approved(h['onaylı']) && h['hadis']).map((h) => ({ text: h['hadis'], src: h['kaynak'], v: vakitOf(h['vakit']), p: norm(h['dönem'] || '') }));
   return { dersler: lessons, sorular: questions, ayetler: verses, hadisler: hadith };
 }
 

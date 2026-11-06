@@ -5,7 +5,7 @@ import { KEYS, NAMES, hm, nextPrayer, trNow, vakitSlot, addDays } from '../praye
 import { load, save } from '../storage';
 import { Card, u } from './ui';
 import { pickForSlot } from '../content';
-import { hijriText, ymdNum } from '../hijri';
+import { hijriText, ymdNum, toHijri } from '../hijri';
 import RadioCard from './RadioCard';
 import { toggle, dayKey } from '../namaz';
 import ShareCard from './ShareCard';
@@ -40,7 +40,10 @@ export default function HomeScreen({ loc, content, go, radio, namaz, setNamaz })
   const di = dayIndex();
   const slot = vakitSlot(loc); // her vakit (günde 5 kez) değişir
   const ayet = pickForSlot(content.ayetler, slot); // vakte uygun ayet
-  const hadis = pickForSlot(content.hadisler, slot);
+  // Dönemlik hadisler (Ramazan, Arefe, Aşure) yalnız ilgili hicri ayda çıkar
+  const hm0 = toHijri(ymdNum(trNow())).hm;
+  const DONEM = { ramazan: 9, arefe: 12, 'aşure': 1, 'şevval': 10 };
+  const hadis = pickForSlot(content.hadisler.filter((h) => !h.p || DONEM[h.p] === hm0), slot);
   const ders = content.dersler.length ? content.dersler[di % content.dersler.length] : null;
 
   // Cuma modu: Perşembe akşamından Cuma akşamına kadar Kehf hatırlatması (en üstte)

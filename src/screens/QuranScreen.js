@@ -1,0 +1,298 @@
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { View, Text, FlatList, Pressable, Modal, TextInput } from 'react-native';
+import { C, themed } from '../theme';
+import { trNow } from '../prayer';
+import { ymdNum } from '../hijri';
+import { load, save } from '../storage';
+import { u } from './ui';
+import { SURAH_TR, SURAH_AR, BISMILLAH, TOTAL_AYAH, RECITERS, audioUrl, quranData } from '../quran';
+
+let Audio = null;
+try { Audio = require('expo-audio'); } catch (e) {}
+
+const DEF = { last: null, read: {}, hatims: 0, days: 30, dayKey: 0, dayN: 0, reciter: RECITERS[0].id, fs: 28, meal: true };
+const DAY_CHOICES = [10, 30, 60, 90];
+
+const totalRead = (read) => Object.values(read).reduce((a, b) => a + b, 0);
+
+export default function QuranScreen() {
+  const [st, setSt] = useState(DEF);
+  const [ready, setReady] = useState(false);
+  const [surah, setSurah] = useState(null); // 1..114 | null
+  const [pick, setPick] = useState(false);
+  const [q, setQ] = useState('');
+  const stRef = useRef(DEF);
+  const set = useCallback((patch) => {
+    const n = { ...stRef.current, ...patch };
+    stRef.current = n; setSt(n); save('quran', n);
+  }, []);
+
+  useEffect(() => {
+    load('quran', DEF).then((v) => { const n = { ...DEF, ...v }; stRef.current = n; setSt(n); setReady(true); });
+  }, []);
+
+  // ---- Ses ----
+  const player = useRef(null);
+  const [now, setNow] = useState(null); // { s, a } çalan ayet
+  const nowRef = useRef(null);
+  const [paused, setPaused] = useState(false);
+  const listRef = useRef(null);
+  const surahRef = useRef(null);
+  surahRef.current = surah;
+
+  const ensurePlayer = () => {
+    if (!Audio || player.current) return player.current;
+    try {
+      Audio.setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' });
+      const p = Audio.createAudioPlayer(null);
+      p.addListener('playbackStatusUpdate', (s) => { if (s && s.didJustFinish) nextAyah(); });
+      player.current = p;
+    } catch (e) { player.current = null; }
+    return player.current;
+  };
+
+  const playAyah = (s, a) => {
+    const p = ensurePlayer();
+    if (!p) return;
+    const ar = quranData().ar;
+    if (a > ar[s - 1].length) { stopAudio(); return; }
+    nowRef.current = { s, a }; setNow({ s, a }); setPaused(false);
+    try {
+      p.replace({ uri: audioUrl(stRef.current.reciter, s, a) });
+      p.play();
+      try { p.setActiveForLockScreen(true, { title: `${SURAH_TR[s - 1]} Suresi · ${a}. ayet`, artist: 'Hayya' }); } catch (e) {}
+    } catch (e) {}
+    if (surahRef.current === s && listRef.current) {
+      try { listRef.current.scrollToIndex({ index: a - 1, viewPosition: 0.2, animated: true }); } catch (e) {}
+    }
+  };
+  const nextAyah = () => { const n = nowRef.current; if (n) playAyah(n.s, n.a + 1); };
+  const prevAyah = () => { const n = nowRef.current; if (n && n.a > 1) playAyah(n.s, n.a - 1); };
+  const togglePause = () => {
+    const p = player.current; if (!p) return;
+    try { if (paused) { p.play(); setPaused(false); } else { p.pause(); setPaused(true); } } catch (e) {}
+  };
+  const stopAudio = () => {
+    const p = player.current;
+    if (p) { try { p.pause(); } catch (e) {} try { p.clearLockScreenControls && p.clearLockScreenControls(); } catch (e) {} }
+    nowRef.current = null; setNow(null); setPaused(false);
+  };
+  useEffect(() => () => {
+    const p = player.current;
+    if (p) { try { p.remove(); } catch (e) {} }
+    player.current = null;
+  }, []);
+
+  // ---- Okuma / hatim ----
+  const markRead = (s, a) => {
+    const cur = stRef.current;
+    const prev = cur.read[s] || 0;
+    const key = ymdNum(trNow());
+    let dayN = cur.dayKey === key ? cur.dayN : 0;
+    let read = { ...cur.read };
+    let hatims = cur.hatims;
+    if (a > prev) { dayN += a - prev; read[s] = a; }
+    let done = false;
+    if (totalRead(read) >= TOTAL_AYAH) { hatims += 1; read = {}; done = true; }
+    set({ read, hatims, dayKey: key, dayN, last: done ? null : { s, a } });
+  };
+
+  if (!ready) return <View style={u.page} />;
+
+  if (surah) {
+    return (
+      <Reader
+        s={surah} st={st} set={set} listRef={listRef} now={now} paused={paused}
+        onBack={() => setSurah(null)} onPlay={playAyah} onMark={markRead}
+        onPrev={prevAyah} onNext={nextAyah} onToggle={togglePause} onStop={stopAudio}
+      />
+    );
+  }
+
+  const total = totalRead(st.read);
+  const goal = Math.ceil(TOTAL_AYAH / st.days);
+  const todayN = st.dayKey === ymdNum(trNow()) ? st.dayN : 0;
+  const k = q.trim().toLocaleLowerCase('tr');
+  const data = SURAH_TR.map((n, i) => ({ i: i + 1, n, ar: SURAH_AR[i], c: quranData().ar[i].length }))
+    .filter((x) => !k || x.n.toLocaleLowerCase('tr').includes(k) || String(x.i) === k);
+  const rec = RECITERS.find((r) => r.id === st.reciter) || RECITERS[0];
+
+  return (
+    <View style={{ flex: 1 }}>
+      <FlatList
+        contentContainerStyle={u.page}
+        data={data}
+        keyExtractor={(x) => String(x.i)}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={
+          <View>
+            {st.last && (
+              <Pressable style={s2.cont} onPress={() => setSurah(st.last.s)}>
+                <Text style={s2.contT}>📖 Kaldığın yerden devam et</Text>
+                <Text style={s2.contS}>{SURAH_TR[st.last.s - 1]} Suresi · {st.last.a}. ayet</Text>
+              </Pressable>
+            )}
+            <View style={s2.card}>
+              <Text style={s2.cardT}>Hatim takibi{st.hatims > 0 ? ` · ${st.hatims}. hatim tamamlandı` : ''}</Text>
+              <View style={s2.bar}><View style={[s2.fill, { width: `${Math.min(100, (total / TOTAL_AYAH) * 100)}%` }]} /></View>
+              <Text style={u.src}>{total} / {TOTAL_AYAH} ayet · %{Math.floor((total / TOTAL_AYAH) * 100)}</Text>
+              <Text style={[u.src, { marginTop: 6 }]}>Hedef: {st.days} günde hatim · günde {goal} ayet · bugün {Math.min(todayN, 99999)} / {goal}</Text>
+              <View style={s2.chips}>
+                {DAY_CHOICES.map((d) => (
+                  <Pressable key={d} onPress={() => set({ days: d })} style={[s2.chip, st.days === d && s2.chipOn]}>
+                    <Text style={[s2.chipT, st.days === d && s2.chipTOn]}>{d} gün</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={[u.src, { marginTop: 8 }]}>Okuduğun ayette ✓ simgesine dokun; ilerlemen buraya işlenir.</Text>
+            </View>
+            <Pressable style={s2.recRow} onPress={() => setPick(true)}>
+              <Text style={s2.recL}>🎧 Okuyan</Text>
+              <Text style={s2.recV}>{rec.name} ›</Text>
+            </Pressable>
+            <TextInput value={q} onChangeText={setQ} placeholder="Sure adı veya numarası ara" placeholderTextColor={C.muted} style={s2.search} autoCorrect={false} />
+          </View>
+        }
+        renderItem={({ item }) => {
+          const done = (st.read[item.i] || 0) >= item.c;
+          return (
+            <Pressable style={s2.row} onPress={() => setSurah(item.i)}>
+              <View style={s2.num}><Text style={s2.numT}>{item.i}</Text></View>
+              <View style={{ flex: 1 }}>
+                <Text style={s2.name}>{item.n} Suresi {done ? '✓' : ''}</Text>
+                <Text style={s2.sub}>{item.c} ayet{st.read[item.i] && !done ? ` · ${st.read[item.i]}. ayete kadar` : ''}</Text>
+              </View>
+              <Text style={s2.ar}>{item.ar}</Text>
+            </Pressable>
+          );
+        }}
+        ListFooterComponent={
+          <Text style={[u.src, { marginTop: 14, textAlign: 'center' }]}>
+            Arapça metin: Tanzil.net (Osmanlı imlası) · Türkçe meal: Türkiye Diyanet Vakfı Meali (Dr. Ali Özek ve ark.), QuranEnc.com v1.0.0 · Ses: EveryAyah.com
+          </Text>
+        }
+      />
+      <Modal visible={pick} transparent animationType="fade" onRequestClose={() => setPick(false)}>
+        <Pressable style={s2.shade} onPress={() => setPick(false)}>
+          <View style={s2.sheet}>
+            <Text style={s2.cardT}>Okuyan seç</Text>
+            {RECITERS.map((r) => (
+              <Pressable key={r.id} style={s2.pickRow} onPress={() => { set({ reciter: r.id }); setPick(false); }}>
+                <Text style={s2.name}>{r.name}{r.note ? `  · ${r.note}` : ''}</Text>
+                <Text style={s2.name}>{r.id === st.reciter ? '✓' : ''}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
+
+function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPrev, onNext, onToggle, onStop }) {
+  const { ar, tr } = quranData();
+  const ayahs = ar[s - 1];
+  const items = ayahs.map((t, i) => ({ a: i + 1, t, m: tr[s - 1][i] }));
+  const readTo = st.read[s] || 0;
+  useEffect(() => {
+    if (st.last && st.last.s === s && st.last.a > 1) {
+      const t = setTimeout(() => { try { listRef.current && listRef.current.scrollToIndex({ index: st.last.a - 1, viewPosition: 0.1, animated: false }); } catch (e) {} }, 300);
+      return () => clearTimeout(t);
+    }
+  }, []);
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={s2.head}>
+        <Pressable onPress={onBack} hitSlop={10}><Text style={s2.back}>‹ Sureler</Text></Pressable>
+        <Text style={s2.headT}>{SURAH_TR[s - 1]} Suresi</Text>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          <Pressable style={s2.fsBtn} onPress={() => set({ fs: Math.max(20, st.fs - 3) })}><Text style={s2.fsT}>A-</Text></Pressable>
+          <Pressable style={s2.fsBtn} onPress={() => set({ fs: Math.min(46, st.fs + 3) })}><Text style={s2.fsT}>A+</Text></Pressable>
+          <Pressable style={s2.fsBtn} onPress={() => set({ meal: !st.meal })}><Text style={s2.fsT}>{st.meal ? 'Meal ✓' : 'Meal'}</Text></Pressable>
+        </View>
+      </View>
+      <FlatList
+        ref={listRef}
+        contentContainerStyle={[u.page, { paddingBottom: now ? 110 : 30 }]}
+        data={items}
+        keyExtractor={(x) => String(x.a)}
+        onScrollToIndexFailed={() => {}}
+        ListHeaderComponent={s !== 1 && s !== 9 ? <Text style={[s2.bism, { fontSize: st.fs }]}>{BISMILLAH}</Text> : null}
+        renderItem={({ item }) => {
+          const on = now && now.s === s && now.a === item.a;
+          const done = item.a <= readTo;
+          return (
+            <View style={[s2.ay, on && s2.ayOn]}>
+              <View style={s2.ayTop}>
+                <View style={s2.num}><Text style={s2.numT}>{item.a}</Text></View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable style={s2.act} onPress={() => onPlay(s, item.a)}><Text style={s2.actT}>▶</Text></Pressable>
+                  <Pressable style={[s2.act, done && s2.actOn]} onPress={() => onMark(s, item.a)}><Text style={[s2.actT, done && { color: '#fff' }]}>✓</Text></Pressable>
+                </View>
+              </View>
+              <Text style={[s2.arT, { fontSize: st.fs, lineHeight: st.fs * 1.9 }]}>{item.t}</Text>
+              {st.meal && <Text style={s2.mealT}>{item.m}</Text>}
+            </View>
+          );
+        }}
+      />
+      {now && (
+        <View style={s2.player}>
+          <Text style={s2.pT} numberOfLines={1}>{SURAH_TR[now.s - 1]} · {now.a}. ayet</Text>
+          <View style={s2.pBtns}>
+            <Pressable onPress={onPrev} hitSlop={8}><Text style={s2.pB}>⏮</Text></Pressable>
+            <Pressable onPress={onToggle} hitSlop={8}><Text style={s2.pB}>{paused ? '▶' : '⏸'}</Text></Pressable>
+            <Pressable onPress={onNext} hitSlop={8}><Text style={s2.pB}>⏭</Text></Pressable>
+            <Pressable onPress={onStop} hitSlop={8}><Text style={s2.pB}>■</Text></Pressable>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const s2 = themed(() => ({
+  cont: { backgroundColor: C.green, borderRadius: 16, padding: 14, marginBottom: 10 },
+  contT: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  contS: { color: '#fff', opacity: 0.9, marginTop: 3 },
+  card: { backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 16, padding: 14, marginBottom: 10 },
+  cardT: { color: C.ink, fontWeight: '800', fontSize: 15, marginBottom: 8 },
+  bar: { height: 8, borderRadius: 4, backgroundColor: C.line, overflow: 'hidden', marginBottom: 6 },
+  fill: { height: 8, backgroundColor: C.green },
+  chips: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  chip: { borderWidth: 1, borderColor: C.line, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
+  chipOn: { backgroundColor: C.green, borderColor: C.green },
+  chipT: { color: C.ink, fontWeight: '600' },
+  chipTOn: { color: '#fff' },
+  recRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 14, padding: 14, marginBottom: 10 },
+  recL: { color: C.ink, fontWeight: '700' },
+  recV: { color: C.green, fontWeight: '700' },
+  search: { borderWidth: 1, borderColor: C.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 16, color: C.ink, backgroundColor: C.card, marginBottom: 4 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 16, padding: 12, marginTop: 8 },
+  num: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.line, alignItems: 'center', justifyContent: 'center' },
+  numT: { color: C.ink, fontWeight: '800', fontSize: 13 },
+  name: { color: C.ink, fontWeight: '700', fontSize: 15 },
+  sub: { color: C.muted, fontSize: 12, marginTop: 2 },
+  ar: { color: C.ink, fontSize: 20 },
+  shade: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 24 },
+  sheet: { backgroundColor: C.card, borderRadius: 18, padding: 16 },
+  pickRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line },
+  back: { color: C.green, fontWeight: '800', fontSize: 15 },
+  headT: { color: C.ink, fontWeight: '800', fontSize: 15 },
+  fsBtn: { borderWidth: 1, borderColor: C.line, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 },
+  fsT: { color: C.ink, fontWeight: '700', fontSize: 12 },
+  bism: { textAlign: 'center', color: C.ink, marginBottom: 12, writingDirection: 'rtl' },
+  ay: { backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: 16, padding: 12, marginTop: 10 },
+  ayOn: { borderColor: C.green, borderWidth: 2 },
+  ayTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  act: { width: 38, height: 34, borderRadius: 10, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
+  actOn: { backgroundColor: C.green, borderColor: C.green },
+  actT: { color: C.ink, fontWeight: '800' },
+  arT: { color: C.ink, textAlign: 'right', writingDirection: 'rtl' },
+  mealT: { color: C.muted, fontSize: 15, lineHeight: 22, marginTop: 10 },
+  player: { position: 'absolute', left: 12, right: 12, bottom: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.green, borderRadius: 16, padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  pT: { color: C.ink, fontWeight: '700', flex: 1, marginRight: 8 },
+  pBtns: { flexDirection: 'row', gap: 16 },
+  pB: { color: C.green, fontSize: 22, fontWeight: '800' },
+}));
