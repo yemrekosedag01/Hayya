@@ -15,10 +15,10 @@ Notifications.setNotificationHandler({
 });
 
 // Android'de bir kanalın sesi sonradan değiştirilemez; bu yüzden her ses için ayrı kanal var.
-const HAYYA_SOUND = 'hayya_bildirim.wav';
+const HAYYA_SOUND = 'hayya_ses.wav';
 const CH = {
-  vakit: { hayya: 'vakit-hayya-v1', sistem: 'vakit-v1' },
-  hatirlatma: { hayya: 'hatirlatma-hayya-v1', sistem: 'hatirlatma-v1' },
+  vakit: { hayya: 'vakit-hayya-v2', sistem: 'vakit-v1' },
+  hatirlatma: { hayya: 'hatirlatma-hayya-v2', sistem: 'hatirlatma-v1' },
 };
 const CH_EZAN = HAS_EZAN_SOUND ? 'ezan-v2' : 'ezan-v1';
 const effMode = (m) => (HAYYA_SOUND_READY && m !== 'sistem' ? 'hayya' : 'sistem');

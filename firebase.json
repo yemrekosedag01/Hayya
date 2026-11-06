@@ -1,6 +1,6 @@
 {
   "react-native": {
-    "messaging_android_notification_channel_id": "duyuru-v2s",
+    "messaging_android_notification_channel_id": "duyuru-v3",
     "messaging_android_headless_task_timeout": 30000
   }
 }

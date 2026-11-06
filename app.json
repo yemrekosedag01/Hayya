@@ -42,7 +42,7 @@
           "icon": "./assets/notification-icon.png",
           "sounds": [
             "./assets/ezan.wav",
-            "./assets/hayya_bildirim.wav"
+            "./assets/hayya_ses.wav"
           ]
         }
       ],

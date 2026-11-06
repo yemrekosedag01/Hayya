@@ -24,7 +24,7 @@ export async function startPush() {
   try {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync(CH_DUYURU, {
-        name: 'Duyurular', importance: Notifications.AndroidImportance.HIGH, sound: HAYYA_SOUND_READY ? 'hayya_bildirim.wav' : 'default',
+        name: 'Duyurular', importance: Notifications.AndroidImportance.HIGH, sound: HAYYA_SOUND_READY ? 'hayya_ses.wav' : 'default',
       });
     }
     const m = getMessaging(getApp());
@@ -35,7 +35,7 @@ export async function startPush() {
       const n = msg.notification || {};
       if (!n.title && !n.body) return;
       await Notifications.scheduleNotificationAsync({
-        content: { title: n.title || 'Hayya', body: n.body || '', sound: HAYYA_SOUND_READY ? 'hayya_bildirim.wav' : 'default' },
+        content: { title: n.title || 'Hayya', body: n.body || '', sound: HAYYA_SOUND_READY ? 'hayya_ses.wav' : 'default' },
         trigger: Platform.OS === 'android' ? { channelId: CH_DUYURU } : null,
       });
     });
