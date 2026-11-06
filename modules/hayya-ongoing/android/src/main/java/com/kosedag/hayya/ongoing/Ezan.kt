@@ -13,7 +13,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import org.json.JSONArray
 
-data class EzanItem(val time: Long, val title: String, val body: String)
+data class EzanItem(val time: Long, val title: String, val body: String, val snd: String)
 
 /**
  * Ezan vakitlerini AlarmManager ile kurar; vakit gelince ezanı EzanService içinde
@@ -41,7 +41,7 @@ object Ezan {
       val a = JSONArray(raw)
       (0 until a.length()).map {
         val o = a.getJSONObject(it)
-        EzanItem(o.getLong("t"), o.optString("title", "Ezan vakti"), o.optString("body", ""))
+        EzanItem(o.getLong("t"), o.optString("title", "Ezan vakti"), o.optString("body", ""), o.optString("snd", "ezan"))
       }.sortedBy { it.time }
     } catch (e: Exception) { emptyList() }
   }
@@ -76,7 +76,7 @@ object Ezan {
     val item = load(ctx).lastOrNull { it.time <= now + 5000 && now - it.time < LATE_LIMIT_MS }
     if (item != null && item.time != prefs(ctx).getLong("lastFired", 0L)) {
       prefs(ctx).edit().putLong("lastFired", item.time).apply()
-      play(ctx, item.title, item.body)
+      play(ctx, item.title, item.body, item.snd)
     }
     scheduleNext(ctx)
   }
@@ -89,10 +89,10 @@ object Ezan {
     return nm.currentInterruptionFilter > NotificationManager.INTERRUPTION_FILTER_ALL
   }
 
-  fun play(ctx: Context, title: String, body: String) {
+  fun play(ctx: Context, title: String, body: String, snd: String = "ezan") {
     if (isSilenced(ctx)) { fallback(ctx, title, body); return }
     val i = Intent(ctx, EzanService::class.java)
-      .putExtra("title", title).putExtra("body", body).putExtra("vib", vib(ctx))
+      .putExtra("title", title).putExtra("body", body).putExtra("vib", vib(ctx)).putExtra("snd", snd)
     try {
       ContextCompat.startForegroundService(ctx, i)
     } catch (e: Exception) {
@@ -137,6 +137,37 @@ object Ezan {
     openIntent(ctx)?.let { b.setContentIntent(it) }
     try { NotificationManagerCompat.from(ctx).notify(7703, b.build()) } catch (e: SecurityException) {}
   }
+
+  private var preview: android.media.MediaPlayer? = null
+
+  /** Ses seçerken dinletme. name: raw kaynak adı ya da "default" (telefonun bildirim sesi). */
+  fun preview(ctx: Context, name: String) {
+    stopPreview()
+    try {
+      val uri = if (name == "default") android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
+      else {
+        val res = ctx.resources.getIdentifier(name, "raw", ctx.packageName)
+        if (res == 0) return
+        android.net.Uri.parse("android.resource://${ctx.packageName}/$res")
+      }
+      val p = android.media.MediaPlayer()
+      p.setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA).build())
+      p.setDataSource(ctx, uri)
+      p.setOnCompletionListener { stopPreview() }
+      p.prepare()
+      p.start()
+      preview = p
+    } catch (e: Exception) { stopPreview() }
+  }
+
+  fun stopPreview() {
+    val p = preview ?: return
+    preview = null
+    try { p.stop() } catch (e: Exception) {}
+    try { p.release() } catch (e: Exception) {}
+  }
+
+  fun isPreviewing() = preview != null
 
   fun icon(ctx: Context): Int {
     var icon = ctx.resources.getIdentifier("notification_icon", "drawable", ctx.packageName)

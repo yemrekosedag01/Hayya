@@ -19,9 +19,14 @@ export function setEzan(list, vib) {
   try { if (Native) Native.setEzan(JSON.stringify(list), !!vib); } catch (e) {}
 }
 
-export function testEzan(title, body) {
-  try { if (Native) Native.testEzan(title, body); } catch (e) {}
+export function testEzan(title, body, snd = 'ezan') {
+  try { if (Native) Native.testEzan(title, body, snd); } catch (e) {}
 }
+
+// Ses seçerken dinletme
+export function previewSound(name) { try { if (Native) Native.preview(name); } catch (e) {} }
+export function stopPreview() { try { if (Native) Native.stopPreview(); } catch (e) {} }
+export function isPreviewing() { try { return Native ? Native.isPreviewing() : false; } catch (e) { return false; } }
 
 // ---- Hayya Radyo ----
 export const hasRadio = () => !!(Native && Native.radioPlay);

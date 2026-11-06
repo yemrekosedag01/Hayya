@@ -7,6 +7,7 @@ import { CITIES } from './src/prayer';
 import { load, save } from './src/storage';
 import { loadContent } from './src/content';
 import { loadRadio } from './src/radio';
+import { DEFAULT_EZAN_SOUNDS, DEFAULT_REM_SOUNDS } from './src/sounds';
 import { setupNotifications, scheduleAll } from './src/notifications';
 import { startPush, setPushCity } from './src/push';
 import { applyOngoing } from './src/ongoing';
@@ -55,6 +56,8 @@ export default function App() {
   const [theme, setTheme] = useState('auto');
   const [vibNotif, setVibNotif] = useState(true);
   const [vibZikir, setVibZikir] = useState(true);
+  const [ezanSounds, setEzanSounds] = useState(DEFAULT_EZAN_SOUNDS);
+  const [remSounds, setRemSounds] = useState(DEFAULT_REM_SOUNDS);
   const sys = useColorScheme();
   const dark = theme === 'dark' || (theme === 'auto' && sys === 'dark');
   applyTheme(dark ? 'dark' : 'light'); // çizimden önce renkleri ayarla
@@ -71,6 +74,8 @@ export default function App() {
       setTheme(await load('theme', 'auto'));
       setVibNotif(await load('vibNotif', true));
       setVibZikir(await load('vibZikir', true));
+      setEzanSounds({ ...DEFAULT_EZAN_SOUNDS, ...(await load('ezanSounds', {})) });
+      setRemSounds({ ...DEFAULT_REM_SOUNDS, ...(await load('remSounds', {})) });
       setContent(await loadContent(setContent));
       setRadio(await loadRadio(setRadio));
       setNotifOk(await setupNotifications());
@@ -83,9 +88,9 @@ export default function App() {
   useEffect(() => {
     if (!ready) return;
     save('loc', loc); save('alarms', alarms); save('pre', pre); save('soundMode', soundMode);
-    save('vibNotif', vibNotif);
-    if (notifOk) scheduleAll(loc, alarms, pre, soundMode, vibNotif);
-  }, [ready, loc, alarms, pre, soundMode, vibNotif, notifOk]);
+    save('vibNotif', vibNotif); save('ezanSounds', ezanSounds); save('remSounds', remSounds);
+    if (notifOk) scheduleAll(loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds);
+  }, [ready, loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds, notifOk]);
 
   useEffect(() => { if (ready) { save('theme', theme); save('vibZikir', vibZikir); } }, [ready, theme, vibZikir]);
 
@@ -112,13 +117,13 @@ export default function App() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next) => {
       if (appState.current.match(/inactive|background/) && next === 'active' && ready && notifOk) {
-        scheduleAll(loc, alarms, pre, soundMode, vibNotif);
+        scheduleAll(loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds);
         applyOngoing(ongoing, loc);
       }
       appState.current = next;
     });
     return () => sub.remove();
-  }, [ready, loc, alarms, pre, soundMode, vibNotif, ongoing, notifOk]);
+  }, [ready, loc, alarms, pre, soundMode, vibNotif, ezanSounds, remSounds, ongoing, notifOk]);
 
   const screen = {
     ana: <HomeScreen loc={loc} content={content} go={setTab} radio={radio} />,
@@ -132,7 +137,8 @@ export default function App() {
           {{
             bildirim: (
               <NotifScreen loc={loc} alarms={alarms} setAlarms={setAlarms} pre={pre} setPre={setPre} notifOk={notifOk}
-                retryNotif={async () => setNotifOk(await setupNotifications())} soundMode={soundMode} vibNotif={vibNotif} />
+                retryNotif={async () => setNotifOk(await setupNotifications())} soundMode={soundMode} vibNotif={vibNotif}
+                ezanSounds={ezanSounds} setEzanSounds={setEzanSounds} remSounds={remSounds} setRemSounds={setRemSounds} />
             ),
             zikir: <ZikirScreen vibZikir={vibZikir} />,
             kible: <QiblaScreen loc={loc} />,

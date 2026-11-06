@@ -42,7 +42,9 @@
           "icon": "./assets/notification-icon.png",
           "sounds": [
             "./assets/ezan.wav",
-            "./assets/hayya_ses.wav"
+            "./assets/hayya_ses.wav",
+            "./assets/sabah_ezan.mp3",
+            "./assets/salat_hayrun.mp3"
           ]
         }
       ],

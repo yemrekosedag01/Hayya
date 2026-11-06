@@ -30,6 +30,7 @@ class EzanService : Service() {
   private var title = ""
   private var body = ""
   private var finished = false
+  private var snd = "ezan"
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -66,6 +67,8 @@ class EzanService : Service() {
     title = intent?.getStringExtra("title") ?: "Ezan vakti"
     body = intent?.getStringExtra("body") ?: ""
     val vib = intent?.getBooleanExtra("vib", true) ?: true
+    snd = intent?.getStringExtra("snd") ?: "ezan"
+    Ezan.stopPreview()
     ensureChannels()
 
     val stopPi = PendingIntent.getService(this, 31, Intent(this, EzanService::class.java).setAction(ACTION_STOP),
@@ -78,7 +81,7 @@ class EzanService : Service() {
       .setCategory(NotificationCompat.CATEGORY_ALARM)
       .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
       .setOngoing(true)
-      .addAction(0, "🔇 Ezanı sustur", stopPi)
+      .addAction(0, "🔇 Sustur", stopPi)
       .setDeleteIntent(stopPi)
     Ezan.openIntent(this)?.let { b.setContentIntent(it) }
     val n = b.build()
@@ -96,7 +99,8 @@ class EzanService : Service() {
   }
 
   private fun startPlayer(): Boolean {
-    val res = resources.getIdentifier("ezan", "raw", packageName)
+    var res = resources.getIdentifier(snd, "raw", packageName)
+    if (res == 0) res = resources.getIdentifier("ezan", "raw", packageName)
     if (res == 0) return false
     val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
     // Müzik vb. çalıyorsa ezan süresince dursun

@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { KEYS, NAMES, prayerTimes, trNow, addDays, toDate, hm } from './prayer';
 import { HAS_EZAN_SOUND, HAYYA_SOUND_READY } from './config';
 import { hasNativeEzan, setEzan, testEzan } from '../modules/hayya-ongoing';
+import { isLong, DEFAULT_EZAN_SOUNDS, DEFAULT_REM_SOUNDS } from './sounds';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -59,19 +60,36 @@ export async function setupNotifications() {
 
 /**
  * Önümüzdeki 14 günün vakit bildirimlerini yeniden kurar.
- * vib: bildirimlerde titreşim açık mı
- * alarms: { imsak: 'off' | 'bildirim' | 'ezan', ... }, pre: dakika (0 = yok), soundMode: 'hayya' | 'sistem'
+ * alarms: { imsak: 'off' | 'bildirim' | 'ezan', ... }, pre: dakika (0 = yok), soundMode: 'hayya' | 'sistem' (Bildirim modu sesi)
+ * ezanSounds / remSounds: vakit başına ezan ve hatırlatma sesi (sounds.js), vib: titreşim
  */
-export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya', vib = true) {
-  const snd = soundFor(soundMode);
+export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya', vib = true, ezanSounds = DEFAULT_EZAN_SOUNDS, remSounds = DEFAULT_REM_SOUNDS) {
   await Notifications.cancelAllScheduledNotificationsAsync();
   const now = Date.now();
   const today = trNow();
   const jobs = [];
-  // Ezan, destekleyen Android sürümlerinde uygulamanın kendi oynatıcısıyla çalar:
-  // ses tuşu ezanı kesmez sesini kısar, yalnızca "Ezanı sustur" düğmesi susturur.
-  const nativeEzan = HAS_EZAN_SOUND && hasNativeEzan();
-  const ezanList = [];
+  // Uzun sesler (ezanlar) uygulamanın kendi oynatıcısıyla çalar:
+  // ses tuşu kesmez sesini kısar, yalnızca "Sustur" düğmesi susturur.
+  const native = hasNativeEzan();
+  const nativeList = [];
+
+  // Bir bildirimi seçilen sese göre kur. kind: 'vakit' | 'hatirlatma'
+  const add = (at, title, body, sndId, kind) => {
+    if (at.getTime() <= now + 5000) return;
+    if (isLong(sndId) && native) { nativeList.push({ t: at.getTime(), title, body, snd: sndId }); return; }
+    let channelId; let sound;
+    if (isLong(sndId)) { channelId = CH_EZAN; sound = HAS_EZAN_SOUND ? 'ezan.wav' : 'default'; } // eski cihaz yedeği
+    else {
+      const m = sndId === 'default' ? 'sistem' : effMode('hayya');
+      channelId = (kind === 'vakit' ? CH.vakit : CH.hatirlatma)[m];
+      sound = m === 'sistem' ? 'default' : HAYYA_SOUND;
+    }
+    jobs.push({
+      content: { title, body, sound },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: nv(channelId, vib) },
+    });
+  };
+
   for (let i = 0; i < DAYS_AHEAD; i++) {
     const day = addDays(today, i);
     const t = prayerTimes(day, loc.lat, loc.lng);
@@ -79,44 +97,28 @@ export async function scheduleAll(loc, alarms, pre, soundMode = 'hayya', vib = t
       const mode = alarms[k] || 'off';
       if (mode === 'off') continue;
       const at = toDate(day, t[k]);
-      if (at.getTime() > now + 5000 && mode === 'ezan' && nativeEzan) {
-        ezanList.push({
-          t: at.getTime(),
-          title: k === 'gunes' ? `Güneş doğdu · ${hm(t[k])}` : `${NAMES[k]} vakti girdi · ${hm(t[k])}`,
-          body: k === 'gunes' ? `${loc.name}: Kerahat vakti başladı.` : `${loc.name} için ${NAMES[k]} vakti. Hayya ale's-salâh!`,
-        });
-      } else if (at.getTime() > now + 5000) {
-        jobs.push({
-          content: {
-            title: k === 'gunes' ? `Güneş doğdu · ${hm(t[k])}` : `${NAMES[k]} vakti girdi · ${hm(t[k])}`,
-            body: k === 'gunes' ? `${loc.name}: Kerahat vakti başladı.` : `${loc.name} için ${NAMES[k]} vakti. Hayya ale's-salâh!`,
-            sound: mode === 'ezan' && HAS_EZAN_SOUND ? 'ezan.wav' : snd,
-          },
-          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: nv(mode === 'ezan' ? CH_EZAN : CH.vakit[effMode(soundMode)], vib) },
-        });
-      }
+      const title = k === 'gunes' ? `Güneş doğdu · ${hm(t[k])}` : `${NAMES[k]} vakti girdi · ${hm(t[k])}`;
+      const body = k === 'gunes' ? `${loc.name}: Kerahat vakti başladı.` : `${loc.name} için ${NAMES[k]} vakti. Hayya ale's-salâh!`;
+      // "Bildirim" modunda Ayarlar'daki bildirim sesi, "Ezan" modunda o vaktin seçili sesi
+      const sndId = mode === 'ezan' ? (ezanSounds[k] || DEFAULT_EZAN_SOUNDS[k]) : (effMode(soundMode) === 'sistem' ? 'default' : 'hayya_ses');
+      add(at, title, body, sndId, 'vakit');
       if (pre > 0 && k !== 'gunes') {
-        const preAt = new Date(at.getTime() - pre * 60000);
-        if (preAt.getTime() > now + 5000) {
-          jobs.push({
-            content: { title: `${NAMES[k]} vaktine ${pre} dakika`, body: `${loc.name} · ${NAMES[k]} ${hm(t[k])}`, sound: snd },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: preAt, channelId: nv(CH.hatirlatma[effMode(soundMode)], vib) },
-          });
-        }
+        add(new Date(at.getTime() - pre * 60000), `${NAMES[k]} vaktine ${pre} dakika`, `${loc.name} · ${NAMES[k]} ${hm(t[k])}`,
+          remSounds[k] || DEFAULT_REM_SOUNDS[k], 'hatirlatma');
       }
     }
   }
-  if (hasNativeEzan()) setEzan(ezanList, vib);
+  if (native) setEzan(nativeList, vib);
   for (const j of jobs) {
     try { await Notifications.scheduleNotificationAsync(j); } catch (e) {}
   }
-  return jobs.length;
+  return jobs.length + nativeList.length;
 }
 
-export async function testNotification(loc, ezan = false, soundMode = 'hayya', vib = true) {
+export async function testNotification(loc, ezan = false, soundMode = 'hayya', vib = true, ezanSnd = 'ezan') {
   const m = effMode(soundMode);
   if (ezan && HAS_EZAN_SOUND && hasNativeEzan()) {
-    testEzan('Hayya · Ezan sesi denemesi', `${loc.name} için ezan uyarıları açık. Susturmak için "Ezanı sustur"a dokunun.`);
+    testEzan('Hayya · Ezan sesi denemesi', `${loc.name} için ezan uyarıları açık. Susturmak için "Sustur"a dokunun.`, ezanSnd);
     return;
   }
   await Notifications.scheduleNotificationAsync({

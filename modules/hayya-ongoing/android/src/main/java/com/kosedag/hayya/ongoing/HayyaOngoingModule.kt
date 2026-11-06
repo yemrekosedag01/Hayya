@@ -32,11 +32,21 @@ class HayyaOngoingModule : Module() {
       true
     }
 
-    Function("testEzan") { title: String, body: String ->
+    Function("testEzan") { title: String, body: String, snd: String ->
       val ctx = appContext.reactContext?.applicationContext ?: return@Function false
-      Ezan.play(ctx, title, body)
+      Ezan.play(ctx, title, body, snd)
       true
     }
+
+    Function("preview") { name: String ->
+      val ctx = appContext.reactContext?.applicationContext ?: return@Function false
+      Ezan.preview(ctx, name)
+      true
+    }
+
+    Function("stopPreview") { Ezan.stopPreview(); true }
+
+    Function("isPreviewing") { Ezan.isPreviewing() }
 
     // Hayya Radyo. playlist: {"epoch": ms, "items": [{"url","dur","title","sub"}]}
     Function("radioPlay") { playlist: String ->
