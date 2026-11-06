@@ -24,6 +24,10 @@
       android:name="com.kosedag.hayya.ongoing.RadioService"
       android:exported="false"
       android:foregroundServiceType="mediaPlayback" />
+    <service
+      android:name="com.kosedag.hayya.ongoing.QuranService"
+      android:exported="false"
+      android:foregroundServiceType="mediaPlayback" />
     <receiver
       android:name="com.kosedag.hayya.ongoing.HayyaWidget"
       android:label="@string/hayya_widget_label"

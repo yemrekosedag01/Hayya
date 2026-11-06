@@ -44,6 +44,15 @@ export function radioState() {
   try { return Native ? JSON.parse(Native.radioState()) : null; } catch (e) { return null; }
 }
 
+// ---- Kuran dinleme ----
+export const hasQuranAudio = () => !!(Native && Native.quranPlay);
+export function quranPlay(queue) { try { if (Native) Native.quranPlay(JSON.stringify(queue)); } catch (e) {} }
+// action: PAUSE | RESUME | SEEK | STOP
+export function quranCmd(action, index = 0) { try { if (Native) Native.quranCmd('com.kosedag.hayya.quran.' + action, index); } catch (e) {} }
+export function quranState() {
+  try { return Native ? JSON.parse(Native.quranState()) : null; } catch (e) { return null; }
+}
+
 // "Alarmlar ve hatırlatıcılar" izni
 export function canExact() { try { return Native && Native.canExact ? Native.canExact() : true; } catch (e) { return true; } }
 export function openExactSettings() { try { return Native && Native.openExactSettings ? !!Native.openExactSettings() : false; } catch (e) { return false; } }

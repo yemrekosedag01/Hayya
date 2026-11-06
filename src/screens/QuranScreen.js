@@ -7,8 +7,7 @@ import { load, save } from '../storage';
 import { u } from './ui';
 import { SURAH_TR, SURAH_AR, BISMILLAH, TOTAL_AYAH, RECITERS, audioUrl, quranData } from '../quran';
 
-let Audio = null;
-try { Audio = require('expo-audio'); } catch (e) {}
+import { hasQuranAudio, quranPlay, quranCmd, quranState } from '../../modules/hayya-ongoing';
 
 const DEF = { last: null, read: {}, hatims: 0, days: 30, dayKey: 0, dayN: 0, reciter: RECITERS[0].id, fs: 28, meal: true };
 const DAY_CHOICES = [10, 30, 60, 90];
@@ -31,57 +30,52 @@ export default function QuranScreen() {
     load('quran', DEF).then((v) => { const n = { ...DEF, ...v }; stRef.current = n; setSt(n); setReady(true); });
   }, []);
 
-  // ---- Ses ----
-  const player = useRef(null);
+  // ---- Ses (native QuranService: ekran kapalıyken de çalar) ----
   const [now, setNow] = useState(null); // { s, a } çalan ayet
-  const nowRef = useRef(null);
   const [paused, setPaused] = useState(false);
+  const base = useRef(null); // { s, a, count }: kuyruğun başı
   const listRef = useRef(null);
   const surahRef = useRef(null);
   surahRef.current = surah;
 
-  const ensurePlayer = () => {
-    if (!Audio || player.current) return player.current;
-    try {
-      Audio.setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: true, interruptionMode: 'doNotMix' });
-      const p = Audio.createAudioPlayer(null);
-      p.addListener('playbackStatusUpdate', (s) => { if (s && s.didJustFinish) nextAyah(); });
-      player.current = p;
-    } catch (e) { player.current = null; }
-    return player.current;
-  };
-
   const playAyah = (s, a) => {
-    const p = ensurePlayer();
-    if (!p) return;
-    const ar = quranData().ar;
-    if (a > ar[s - 1].length) { stopAudio(); return; }
-    nowRef.current = { s, a }; setNow({ s, a }); setPaused(false);
-    try {
-      p.replace({ uri: audioUrl(stRef.current.reciter, s, a) });
-      p.play();
-      try { p.setActiveForLockScreen(true, { title: `${SURAH_TR[s - 1]} Suresi · ${a}. ayet`, artist: 'Hayya' }); } catch (e) {}
-    } catch (e) {}
-    if (surahRef.current === s && listRef.current) {
-      try { listRef.current.scrollToIndex({ index: a - 1, viewPosition: 0.2, animated: true }); } catch (e) {}
-    }
+    if (!hasQuranAudio()) return;
+    const n = quranData().ar[s - 1].length;
+    const urls = []; const titles = [];
+    for (let i = a; i <= n; i++) { urls.push(audioUrl(stRef.current.reciter, s, i)); titles.push(`${SURAH_TR[s - 1]} Suresi · ${i}. ayet`); }
+    base.current = { s, a, count: urls.length };
+    quranPlay({ urls, titles, start: 0 });
+    setNow({ s, a }); setPaused(false);
   };
-  const nextAyah = () => { const n = nowRef.current; if (n) playAyah(n.s, n.a + 1); };
-  const prevAyah = () => { const n = nowRef.current; if (n && n.a > 1) playAyah(n.s, n.a - 1); };
-  const togglePause = () => {
-    const p = player.current; if (!p) return;
-    try { if (paused) { p.play(); setPaused(false); } else { p.pause(); setPaused(true); } } catch (e) {}
+  const seek = (d) => {
+    const b = base.current; const st0 = quranState();
+    if (!b || !st0) return;
+    quranCmd('SEEK', Math.max(0, Math.min(b.count - 1, st0.index + d)));
   };
-  const stopAudio = () => {
-    const p = player.current;
-    if (p) { try { p.pause(); } catch (e) {} try { p.clearLockScreenControls && p.clearLockScreenControls(); } catch (e) {} }
-    nowRef.current = null; setNow(null); setPaused(false);
-  };
-  useEffect(() => () => {
-    const p = player.current;
-    if (p) { try { p.remove(); } catch (e) {} }
-    player.current = null;
-  }, []);
+  const nextAyah = () => seek(1);
+  const prevAyah = () => seek(-1);
+  const togglePause = () => { quranCmd(paused ? 'RESUME' : 'PAUSE'); setPaused(!paused); };
+  const stopAudio = () => { quranCmd('STOP'); base.current = null; setNow(null); setPaused(false); };
+
+  // Çalan ayeti native taraftan oku (ekran açıkken)
+  useEffect(() => {
+    if (!now) return undefined;
+    const t = setInterval(() => {
+      const b = base.current; const st0 = quranState();
+      if (!b || !st0) return;
+      if (!st0.active) { base.current = null; setNow(null); setPaused(false); return; }
+      const a = b.a + Math.max(0, st0.index);
+      setPaused(!!st0.paused);
+      setNow((cur) => {
+        if (cur && cur.s === b.s && cur.a === a) return cur;
+        if (surahRef.current === b.s && listRef.current) {
+          try { listRef.current.scrollToIndex({ index: a - 1, viewPosition: 0.2, animated: true }); } catch (e) {}
+        }
+        return { s: b.s, a };
+      });
+    }, 700);
+    return () => clearInterval(t);
+  }, [now !== null]);
 
   // ---- Okuma / hatim ----
   const markRead = (s, a) => {

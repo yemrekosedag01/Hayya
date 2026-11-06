@@ -66,6 +66,24 @@ class HayyaOngoingModule : Module() {
 
     Function("radioState") { RadioService.state() }
 
+    // Kuran dinleme. queue: {"urls":[...],"titles":[...],"start":n}
+    Function("quranPlay") { queue: String ->
+      val ctx = appContext.reactContext?.applicationContext ?: return@Function false
+      QuranService.queue = queue
+      val i = android.content.Intent(ctx, QuranService::class.java).setAction(QuranService.ACTION_PLAY)
+      androidx.core.content.ContextCompat.startForegroundService(ctx, i)
+      true
+    }
+
+    Function("quranCmd") { action: String, index: Int ->
+      val ctx = appContext.reactContext?.applicationContext ?: return@Function false
+      val i = android.content.Intent(ctx, QuranService::class.java).setAction(action).putExtra("index", index)
+      try { ctx.startService(i) } catch (e: Exception) {}
+      true
+    }
+
+    Function("quranState") { QuranService.state() }
+
     // Widget ve kalıcı gösterge için vakit listesini kaydet (gösterge kapalı olsa da widget kullanır)
     Function("setData") { payload: String ->
       val ctx = appContext.reactContext?.applicationContext ?: return@Function false
