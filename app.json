@@ -44,7 +44,9 @@
             "./assets/ezan.wav",
             "./assets/hayya_ses.wav",
             "./assets/sabah_ezan.mp3",
-            "./assets/salat_hayrun.mp3"
+            "./assets/salat_hayrun.mp3",
+            "./assets/kisa_ezan.mp3",
+            "./assets/uzun_ezan.mp3"
           ]
         }
       ],
