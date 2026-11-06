@@ -16,6 +16,7 @@ export default function Onboarding({ onDone, setLoc, setNotifOk, dark }) {
   const [busy, setBusy] = useState(false);
   const [found, setFound] = useState(null);
   const [err, setErr] = useState('');
+  const [noExactPage, setNoExactPage] = useState(false); // bu telefonda alarm izni sayfası yok
 
   const refresh = async () => { const g = await notifGranted(); setNotif(g); setNotifOk(g); setExact(canExact()); };
   useEffect(() => {
@@ -56,12 +57,15 @@ export default function Onboarding({ onDone, setLoc, setNotifOk, dark }) {
           <Text style={s.title}>Ezan vakitlerini kaçırmayın</Text>
           <Text style={s.sub}>Vakit girdiğinde ezan okunabilmesi ve hatırlatma yapılabilmesi için iki izin gerekiyor.</Text>
           <Perm done={notif} title="Bildirimler" desc="Ezan, vakit ve hatırlatma bildirimleri" onPress={askNotif} />
-          <Perm done={exact} title="Alarmlar ve hatırlatıcılar" desc="Ezanın gecikmeden, tam vaktinde okunması" onPress={openExactSettings} />
+          <Perm done={exact} title="Alarmlar ve hatırlatıcılar" desc="Ezanın gecikmeden, tam vaktinde okunması" onPress={() => { if (!openExactSettings()) setNoExactPage(true); }} />
           {!exact && <Text style={s.note}>"İzin ver"e dokununca açılan sayfada anahtarı açıp geri dönün.</Text>}
         </View>
         <Dots step={1} />
-        <Pressable style={s.btn} onPress={() => setStep(2)}><Text style={s.btnT}>{notif && exact ? 'Devam' : 'Devam et'}</Text></Pressable>
-        {!(notif && exact) && <Text style={s.later}>İzinleri daha sonra Menü → Ezan ve Bildirimler{'’'}den de açabilirsiniz.</Text>}
+        {/* İki izin de verilmeden devam edilemez (telefonda alarm izni sayfası yoksa o izin aranmaz) */}
+        <Pressable style={[s.btn, !(notif && (exact || noExactPage)) && s.btnOff]} disabled={!(notif && (exact || noExactPage))} onPress={() => setStep(2)}>
+          <Text style={s.btnT}>Devam</Text>
+        </Pressable>
+        {!(notif && (exact || noExactPage)) && <Text style={s.later}>Devam etmek için iki izni de verin. Hayya bu izinlerle ezanı vaktinde okuyabilir.</Text>}
       </SafeAreaView>
     );
   }
@@ -135,6 +139,7 @@ const s = themed(() => ({
   permBtnT: { color: '#fff', fontWeight: '900', fontSize: 14 },
   note: { fontSize: 13, fontWeight: '600', color: C.muted, textAlign: 'center', marginTop: 12 },
   btn: { backgroundColor: C.primary, borderRadius: 18, paddingVertical: 16, alignItems: 'center' },
+  btnOff: { opacity: 0.4 },
   ghost: { backgroundColor: C.card, borderWidth: 2, borderColor: C.green },
   btnT: { color: '#fff', fontSize: 17, fontWeight: '900' },
   later: { fontSize: 12, fontWeight: '600', color: C.muted, textAlign: 'center', marginTop: 10 },

@@ -46,4 +46,4 @@ export function radioState() {
 
 // "Alarmlar ve hatırlatıcılar" izni
 export function canExact() { try { return Native && Native.canExact ? Native.canExact() : true; } catch (e) { return true; } }
-export function openExactSettings() { try { if (Native && Native.openExactSettings) Native.openExactSettings(); } catch (e) {} }
+export function openExactSettings() { try { return Native && Native.openExactSettings ? !!Native.openExactSettings() : false; } catch (e) { return false; } }
