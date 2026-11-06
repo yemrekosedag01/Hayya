@@ -151,7 +151,7 @@ class RadioService : Service() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val f = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
         .setAudioAttributes(attrs)
-        .setWillPauseWhenDucked(true)
+        .setWillPauseWhenDucked(false) // bildirim sesinde sistem sesi kısar, durdurmaz
         .setOnAudioFocusChangeListener { change -> main.post { onFocus(change) } }
         .build()
       focus = f
@@ -165,13 +165,20 @@ class RadioService : Service() {
   private fun onFocus(change: Int) {
     when (change) {
       AudioManager.AUDIOFOCUS_LOSS -> stopAll() // başka uygulama müzik açtı
-      AudioManager.AUDIOFOCUS_LOSS_TRANSIENT, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+      AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+        // Bildirim sesi: radyo durmaz, sesi kısılır (eski Android sürümleri için elle)
+        try { player?.setVolume(0.2f, 0.2f) } catch (e: Exception) {}
+      }
+      AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
         pausedByFocus = true // ezan ya da arama
         releasePlayer()
         playing = false
         refreshNotification()
       }
-      AudioManager.AUDIOFOCUS_GAIN -> if (pausedByFocus) { pausedByFocus = false; playLive(-1) }
+      AudioManager.AUDIOFOCUS_GAIN -> {
+        try { player?.setVolume(1f, 1f) } catch (e: Exception) {}
+        if (pausedByFocus) { pausedByFocus = false; playLive(-1) }
+      }
     }
   }
 
