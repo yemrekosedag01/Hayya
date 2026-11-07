@@ -56,3 +56,6 @@ export function quranData() {
   if (!cache) cache = { ar: require('./ar.json'), tr: require('./tr.json') };
   return cache;
 }
+
+/** Basılı Medine Mushafı'na göre her ayetin başladığı sayfa: [sure][ayet-1] → 1..604 */
+export const pageStarts = () => require('./pages.json');

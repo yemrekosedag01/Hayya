@@ -5,7 +5,7 @@ import { trNow } from '../prayer';
 import { ymdNum } from '../hijri';
 import { load, save } from '../storage';
 import { u } from './ui';
-import { SURAH_TR, SURAH_AR, BISMILLAH, TOTAL_AYAH, RECITERS, audioUrl, quranData } from '../quran';
+import { SURAH_TR, SURAH_AR, BISMILLAH, TOTAL_AYAH, RECITERS, audioUrl, quranData, pageStarts } from '../quran';
 
 import { hasQuranAudio, quranPlay, quranCmd, quranState } from '../../modules/hayya-ongoing';
 
@@ -24,19 +24,6 @@ function Ring({ n, size = 30 }) {
       <Text style={[s2.ringT, { fontSize: size * 0.42 }]}>{arNum(n)}</Text>
     </View>
   );
-}
-
-/** Sayfa sınırları: yazı boyutu ve meal durumuna göre ekrana sığacak kadar ayet. Dönen: [[ayet…], …] */
-function paginate(items, fs, meal, avail) {
-  const perLine = Math.max(14, Math.floor(30 * (28 / fs)));
-  const pages = []; let cur = []; let h = 0;
-  for (const it of items) {
-    const cost = Math.ceil(it.t.length / perLine) * fs * 2 + (meal ? Math.ceil(it.m.length / 42) * 23 + 10 : 0);
-    if (cur.length && h + cost > avail) { pages.push(cur); cur = []; h = 0; }
-    cur.push(it); h += cost;
-  }
-  if (cur.length) pages.push(cur);
-  return pages;
 }
 
 function ViewToggle({ view, set }) {
@@ -140,15 +127,39 @@ export default function QuranScreen() {
     set({ read, hatims, dayKey: key, dayN, last: done ? null : { s, a } });
   };
 
+  const chooseReciter = (id) => {
+    set({ reciter: id }); setPick(false);
+    if (now) setTimeout(() => playAyah(now.s, now.a), 80); // çalıyorsa yeni okuyanla aynı ayetten devam
+  };
+  const reciterModal = (
+<Modal visible={pick} transparent animationType="fade" onRequestClose={() => setPick(false)}>
+        <Pressable style={s2.shade} onPress={() => setPick(false)}>
+          <View style={s2.sheet}>
+            <Text style={s2.cardT}>Okuyan seç</Text>
+            {RECITERS.map((r) => (
+              <Pressable key={r.id} style={s2.pickRow} onPress={() => chooseReciter(r.id)}>
+                <Text style={s2.name}>{r.name}{r.note ? `  · ${r.note}` : ''}</Text>
+                <Text style={s2.name}>{r.id === st.reciter ? '✓' : ''}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+  );
+  const jump = useRef(null); // sure değişince hangi sayfaya inileceği ('last' | null)
+
   if (!ready) return <View style={u.page} />;
 
   if (surah) {
     return (
+      <View style={{ flex: 1 }}>
       <Reader
-        s={surah} st={st} set={set} listRef={listRef} now={now} paused={paused}
+        s={surah} jump={jump} onSurah={setSurah} reciterName={(RECITERS.find((r) => r.id === st.reciter) || RECITERS[0]).name} onPickReciter={() => setPick(true)} st={st} set={set} listRef={listRef} now={now} paused={paused}
         onBack={() => setSurah(null)} onPlay={playAyah} onMark={markRead}
         onPrev={prevAyah} onNext={nextAyah} onToggle={togglePause} onStop={stopAudio} onSpeed={cycleSpeed}
       />
+      {reciterModal}
+      </View>
     );
   }
 
@@ -216,32 +227,29 @@ export default function QuranScreen() {
           </Text>
         }
       />
-      <Modal visible={pick} transparent animationType="fade" onRequestClose={() => setPick(false)}>
-        <Pressable style={s2.shade} onPress={() => setPick(false)}>
-          <View style={s2.sheet}>
-            <Text style={s2.cardT}>Okuyan seç</Text>
-            {RECITERS.map((r) => (
-              <Pressable key={r.id} style={s2.pickRow} onPress={() => { set({ reciter: r.id }); setPick(false); }}>
-                <Text style={s2.name}>{r.name}{r.note ? `  · ${r.note}` : ''}</Text>
-                <Text style={s2.name}>{r.id === st.reciter ? '✓' : ''}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
+      {reciterModal}
     </View>
   );
 }
 
-function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPrev, onNext, onToggle, onStop, onSpeed }) {
+function Reader({ s, jump, onSurah, reciterName, onPickReciter, st, set, listRef, now, paused, onBack, onPlay, onMark, onPrev, onNext, onToggle, onStop, onSpeed }) {
   const { ar, tr } = quranData();
   const items = ar[s - 1].map((t, i) => ({ a: i + 1, t, m: tr[s - 1][i] }));
   const readTo = st.read[s] || 0;
   const flow = st.view === 'sayfa';
-  const { height } = useWindowDimensions();
-  const pages = flow ? paginate(items, st.fs, st.meal, Math.max(260, height - 400)) : [];
+  // Basılı Mushaf sayfaları: ayetler başladıkları sayfaya göre gruplanır
+  const pages = [];
+  if (flow) {
+    const starts = pageStarts()[s - 1];
+    let last = -1;
+    items.forEach((it) => {
+      const pn = starts[it.a - 1];
+      if (pn !== last) { pages.push({ no: pn, list: [] }); last = pn; }
+      pages[pages.length - 1].list.push(it);
+    });
+  }
   const [page, setPage] = useState(0);
-  const pageOf = (a) => Math.max(0, pages.findIndex((p) => p.some((x) => x.a === a)));
+  const pageOf = (a) => Math.max(0, pages.findIndex((p) => p.list.some((x) => x.a === a)));
   const lastIdx = useRef(-1);
   const pageRef = useRef(null);
   const cur = Math.min(page, Math.max(0, pages.length - 1));
@@ -254,7 +262,8 @@ function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPr
         const t = setTimeout(() => { try { listRef.current && listRef.current.scrollToIndex({ index: st.last.a - 1, viewPosition: 0.1, animated: false }); } catch (e) {} }, 300);
         return () => clearTimeout(t);
       }
-    } else setPage(0);
+    } else setPage(jump && jump.current === 'last' ? 9999 : 0);
+    if (jump) jump.current = null;
     return undefined;
   }, [flow, s]);
 
@@ -273,10 +282,10 @@ function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPr
   useEffect(() => { if (pageRef.current) { try { pageRef.current.scrollTo({ y: 0, animated: false }); } catch (e) {} } }, [cur]);
 
   const startFrom = () => {
-    if (flow && pages[cur]) onPlay(s, pages[cur][0].a);
+    if (flow && pages[cur]) onPlay(s, pages[cur].list[0].a);
     else onPlay(s, st.last && st.last.s === s ? st.last.a : 1);
   };
-  const markPage = () => { const p = pages[cur]; if (p) onMark(s, p[p.length - 1].a); };
+  const markPage = () => { const p = pages[cur]; if (p) onMark(s, p.list[p.list.length - 1].a); };
   const bism = s !== 1 && s !== 9 ? <Text style={[s2.bism, { fontSize: st.fs }]}>{BISMILLAH}</Text> : null;
   const spd = (st.speed || 1) + 'x';
 
@@ -295,9 +304,9 @@ function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPr
 
       {flow ? (
         <ScrollView ref={pageRef} contentContainerStyle={[u.page, { paddingBottom: 20 }]}>
-          {cur === 0 ? bism : null}
+          {pages[cur] && pages[cur].list[0].a === 1 ? bism : null}
           <Text style={[s2.arFlow, { fontSize: st.fs, lineHeight: st.fs * 2 }]}>
-            {(pages[cur] || []).map((x) => {
+            {(pages[cur] ? pages[cur].list : []).map((x) => {
               const on = now && now.s === s && now.a === x.a;
               return (
                 <Text key={x.a} onPress={() => onPlay(s, x.a)} style={on ? s2.flowOn : null}>
@@ -308,7 +317,7 @@ function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPr
           </Text>
           {st.meal && (
             <Text style={s2.mealFlow}>
-              {(pages[cur] || []).map((x) => (
+              {(pages[cur] ? pages[cur].list : []).map((x) => (
                 <Text key={x.a}><Text style={s2.mealNo}>{x.a}. </Text>{x.m + ' '}</Text>
               ))}
             </Text>
@@ -346,11 +355,20 @@ function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPr
 
       {/* Sabit alt çubuk: sayfa gezinme (tam sayfada) ve ses her zaman görünür */}
       <View style={s2.bar}>
+        <Pressable onPress={onPickReciter} style={s2.recBar} hitSlop={6}>
+          <Text style={s2.recBarT} numberOfLines={1}>🎧 Okuyan: {reciterName} ›</Text>
+        </Pressable>
         {flow && (
           <View style={s2.pgRow}>
-            <Pressable onPress={() => setPage(Math.max(0, cur - 1))} disabled={cur === 0} style={[s2.pgB, cur === 0 && { opacity: 0.35 }]}><Text style={s2.pgT}>‹ Önceki</Text></Pressable>
-            <Pressable onPress={markPage} hitSlop={6}><Text style={s2.pgInfo}>Sayfa {cur + 1} / {Math.max(1, pages.length)}  ✓</Text></Pressable>
-            <Pressable onPress={() => setPage(Math.min(pages.length - 1, cur + 1))} disabled={cur >= pages.length - 1} style={[s2.pgB, cur >= pages.length - 1 && { opacity: 0.35 }]}><Text style={s2.pgT}>Sonraki ›</Text></Pressable>
+            <Pressable
+              onPress={() => { if (cur > 0) setPage(cur - 1); else if (s > 1) { jump.current = 'last'; onSurah(s - 1); } }}
+              disabled={cur === 0 && s === 1}
+              style={[s2.pgB, cur === 0 && s === 1 && { opacity: 0.35 }]}><Text style={s2.pgT}>‹ Önceki</Text></Pressable>
+            <Pressable onPress={markPage} hitSlop={6}><Text style={s2.pgInfo}>Sayfa {pages[cur] ? pages[cur].no : ''}  ✓</Text></Pressable>
+            <Pressable
+              onPress={() => { if (cur < pages.length - 1) setPage(cur + 1); else if (s < 114) onSurah(s + 1); }}
+              disabled={cur >= pages.length - 1 && s === 114}
+              style={[s2.pgB, cur >= pages.length - 1 && s === 114 && { opacity: 0.35 }]}><Text style={s2.pgT}>Sonraki ›</Text></Pressable>
           </View>
         )}
         <View style={s2.audRow}>
@@ -429,6 +447,8 @@ const s2 = themed(() => ({
   ring: { borderWidth: 2, borderColor: C.gold, backgroundColor: C.goldSoft, alignItems: 'center', justifyContent: 'center' },
   ringT: { color: C.goldInk, fontWeight: '800' },
   bar: { borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.card, paddingHorizontal: 12, paddingVertical: 8 },
+  recBar: { paddingBottom: 8 },
+  recBarT: { color: C.green, fontWeight: '700', fontSize: 13 },
   pgRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   pgB: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: C.line },
   pgT: { color: C.green, fontWeight: '800' },
