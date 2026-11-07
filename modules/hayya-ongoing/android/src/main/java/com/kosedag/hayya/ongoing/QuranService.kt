@@ -56,6 +56,7 @@ class QuranService : Service() {
   private var pausedByFocus = false
   private var retries = 0
   private var speed = 1f
+  private var focusTok = 0
   private var stopped = true
 
   private val attrs: AudioAttributes = AudioAttributes.Builder()
@@ -107,6 +108,10 @@ class QuranService : Service() {
     when (intent?.action) {
       ACTION_PLAY -> {
         if (!parseQueue()) { stopAll(); return START_NOT_STICKY }
+        // Yeni kuyruk: eski oynatıcıları ve eski ses odağı isteğini bırak. Yoksa eski isteğin
+        // "odak kaybı" bildirimi yeni çalmayı duraklatıyordu (ikinci seçimde ses gelmiyordu).
+        main.removeCallbacksAndMessages(null)
+        releasePlayer(); releaseNext(); abandonFocus()
         ensureChannel()
         active = true
         stopped = false; finished = false; paused = false; pausedByFocus = false
@@ -138,19 +143,27 @@ class QuranService : Service() {
     urls.isNotEmpty()
   } catch (e: Exception) { false }
 
+  private fun abandonFocus() {
+    focusTok++
+    val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) focus?.let { am.abandonAudioFocusRequest(it) }
+    focus = null
+  }
+
   private fun requestFocus() {
+    val tok = ++focusTok
     val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val f = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
         .setAudioAttributes(attrs)
         .setWillPauseWhenDucked(false)
-        .setOnAudioFocusChangeListener { c -> main.post { onFocus(c) } }
+        .setOnAudioFocusChangeListener { c -> main.post { if (tok == focusTok) onFocus(c) } }
         .build()
       focus = f
       am.requestAudioFocus(f)
     } else {
       @Suppress("DEPRECATION")
-      am.requestAudioFocus({ c -> main.post { onFocus(c) } }, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
+      am.requestAudioFocus({ c -> main.post { if (tok == focusTok) onFocus(c) } }, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
     }
   }
 
@@ -302,9 +315,7 @@ class QuranService : Service() {
     releasePlayer()
     releaseNext()
     playing = false; paused = false
-    val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) focus?.let { am.abandonAudioFocusRequest(it) }
-    focus = null
+    abandonFocus()
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE)
     else { @Suppress("DEPRECATION") stopForeground(true) }
     stopSelf()
