@@ -31,6 +31,7 @@ class QuranService : Service() {
     const val ACTION_RESUME = "com.kosedag.hayya.quran.RESUME"
     const val ACTION_SEEK = "com.kosedag.hayya.quran.SEEK"
     const val ACTION_STOP = "com.kosedag.hayya.quran.STOP"
+    const val ACTION_SPEED = "com.kosedag.hayya.quran.SPEED"
     const val NOTIF_ID = 7706
     const val CHANNEL = "kuran-v1"
 
@@ -54,6 +55,7 @@ class QuranService : Service() {
   private var titles: List<String> = emptyList()
   private var pausedByFocus = false
   private var retries = 0
+  private var speed = 1f
   private var stopped = true
 
   private val attrs: AudioAttributes = AudioAttributes.Builder()
@@ -120,6 +122,7 @@ class QuranService : Service() {
       ACTION_PAUSE -> pauseNow(false)
       ACTION_RESUME -> resumeNow()
       ACTION_SEEK -> if (!stopped) { val i = intent.getIntExtra("index", index); paused = false; pausedByFocus = false; playIndex(i.coerceIn(0, urls.size - 1)) }
+      ACTION_SPEED -> { speed = (intent.getIntExtra("index", 100) / 100f).coerceIn(0.5f, 2f); if (playing) applySpeed(player) }
       ACTION_STOP -> stopAll()
     }
     return START_NOT_STICKY
@@ -130,6 +133,7 @@ class QuranService : Service() {
     val u = o.getJSONArray("urls"); val t = o.optJSONArray("titles")
     urls = (0 until u.length()).map { u.getString(it) }
     titles = (0 until u.length()).map { t?.optString(it, "") ?: "" }
+    speed = o.optDouble("speed", 1.0).toFloat().coerceIn(0.5f, 2f)
     count = urls.size
     urls.isNotEmpty()
   } catch (e: Exception) { false }
@@ -161,6 +165,12 @@ class QuranService : Service() {
     }
   }
 
+  /** Okuma hızı (ses perdesi bozulmadan). Yalnızca çalan oynatıcıya uygulanır. */
+  private fun applySpeed(mp: MediaPlayer?) {
+    if (mp == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+    try { mp.playbackParams = mp.playbackParams.setSpeed(speed) } catch (e: Exception) {}
+  }
+
   private fun pauseNow(byFocus: Boolean) {
     if (stopped) return
     try { player?.pause() } catch (e: Exception) {}
@@ -172,7 +182,7 @@ class QuranService : Service() {
     if (stopped || !paused) return
     paused = false; pausedByFocus = false
     if (player != null) {
-      try { player?.start(); playing = true } catch (e: Exception) { playIndex(index) }
+      try { player?.start(); playing = true; applySpeed(player) } catch (e: Exception) { playIndex(index) }
     } else playIndex(index)
     refreshNotification()
   }
@@ -236,6 +246,7 @@ class QuranService : Service() {
       index = i + 1; retries = 0
       if (!wasChained && !paused) { try { n.start() } catch (e: Exception) {} }
       playing = !paused
+      if (playing) applySpeed(n)
       refreshNotification()
       prepareNext(index + 1)
     } else {
@@ -254,6 +265,7 @@ class QuranService : Service() {
       player = n; next = null; nextReady = false; chained = false; nextIdx = -1
       if (!paused) { try { n.start() } catch (e: Exception) {} }
       playing = !paused
+      if (playing) applySpeed(n)
       refreshNotification()
       prepareNext(i + 1)
       return
@@ -264,7 +276,7 @@ class QuranService : Service() {
       p.setOnPreparedListener {
         if (player === it) {
           retries = 0
-          if (!paused) { it.start(); playing = true }
+          if (!paused) { it.start(); playing = true; applySpeed(it) }
           refreshNotification()
           prepareNext(i + 1)
         }

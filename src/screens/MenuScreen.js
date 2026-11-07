@@ -12,6 +12,7 @@ const TILES = [
   { key: 'zikir', icon: '📿', title: 'Zikirmatik', sub: 'Tesbihat ve zikir sayacı' },
   { key: 'kible', icon: '🧭', title: 'Kıble Pusulası', sub: 'Kâbe yönünü bul' },
   { key: 'esma', icon: '✨', title: 'Esmaül Hüsna', sub: 'Allah’ın 99 güzel ismi' },
+  { key: 'zekat', icon: '🧮', title: 'Zekât Hesaplama', sub: 'Nisap ve verilecek zekât' },
   { key: 'dini', icon: '🌙', title: 'Dini Günler', sub: 'Kandiller ve bayramlar' },
   { key: 'hicri', icon: '🗓️', title: 'Hicri Takvim', sub: 'Hicri ve miladi tarih' },
   { key: 'ayarlar', icon: '⚙️', title: 'Ayarlar', sub: 'Tema, titreşim ve daha fazlası' },

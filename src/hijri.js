@@ -55,6 +55,13 @@ export const miladiText = (n, wd = true) => {
   return `${g.d} ${GMONTHS[g.m - 1]} ${g.y}${wd ? ' ' + WDAYS[g.wd] : ''}`;
 };
 
+/** Bir sonraki Ramazan'ın ilk günü (gün sayısı). Ramazan içindeysek veya tablo bittiyse null. */
+export function nextRamadanStart(n) {
+  if (toHijri(n).hm === 9) return null;
+  const x = STARTS.find((r) => r.hm === 9 && r.day > n);
+  return x ? x.day : null;
+}
+
 /** Hicri ayın gün listesi (Diyanet tablosundan). hy/hm verilmezse ayı içeren gün n'den bulunur. */
 export function hijriMonthDays(n) {
   const h = toHijri(n);

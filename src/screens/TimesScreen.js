@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet, Modal, FlatList, ActivityIndicator, TextInput } from 'react-native';
 import { detectLocation } from '../location';
 import { C, themed } from '../theme';
 import { CITIES, KEYS, hm, prayerTimes, trNow, addDays } from '../prayer';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Card, u } from './ui';
+import { nextRamadanStart, ymdNum, miladiText } from '../hijri';
 
 const SHORT = { imsak: 'İmsak', gunes: 'Güneş', ogle: 'Öğle', ikindi: 'İkindi', aksam: 'Akşam', yatsi: 'Yatsı' };
 
@@ -15,6 +16,9 @@ export default function TimesScreen({ loc, setLoc, autoPick }) {
   const [query, setQuery] = useState('');
   const q2 = query.trim().toLocaleLowerCase('tr');
   const list = q2 ? CITIES.filter((c) => c.name.toLocaleLowerCase('tr').includes(q2)) : CITIES;
+
+  const [, setTick] = useState(0);
+  useEffect(() => { const t = setInterval(() => setTick((x) => x + 1), 30000); return () => clearInterval(t); }, []);
 
   const today = trNow();
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
@@ -56,6 +60,22 @@ export default function TimesScreen({ loc, setLoc, autoPick }) {
           );
         })}
       </Card>
+
+      {(() => {
+        // Ramazan'a 100 günden az kalınca geri sayım (Türkiye saatiyle gece yarısına göre)
+        const rs = nextRamadanStart(ymdNum(today));
+        if (rs == null) return null;
+        const left = rs * 86400 - (ymdNum(today) * 86400 + today.sec);
+        const days = Math.floor(left / 86400);
+        if (left <= 0 || days >= 100) return null;
+        const hours = Math.floor((left % 86400) / 3600);
+        return (
+          <Card title="🌙 Ramazan’a Kalan Süre">
+            <Text style={s.rmz}>{days} gün {hours} saat</Text>
+            <Text style={u.src}>Ramazan {miladiText(rs, false)} tarihinde başlıyor</Text>
+          </Card>
+        );
+      })()}
 
       <Text style={[u.src, { marginTop: 12 }]}>Vakitler Diyanetin kullandığı Türkiye yöntemiyle telefonda hesaplanır; internet gerekmez.</Text>
 
@@ -116,6 +136,7 @@ const s = themed(() => ({
   closeTxt: { fontSize: 15, fontWeight: '800', color: C.green },
   cityRow: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: C.line },
   cityTxt: { fontSize: 16, fontWeight: '700', color: C.ink },
+  rmz: { fontSize: 30, fontWeight: '900', color: C.green, marginVertical: 8 },
   err: { color: C.bad, fontWeight: '700', marginBottom: 8 },
   search: { borderWidth: 1, borderColor: C.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 16, color: C.ink, backgroundColor: C.bg, marginBottom: 6 },
 }));

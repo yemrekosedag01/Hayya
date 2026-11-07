@@ -22,6 +22,7 @@ import ZikirScreen from './src/screens/ZikirScreen';
 import QiblaScreen from './src/screens/QiblaScreen';
 import EsmaScreen from './src/screens/EsmaScreen';
 import QuranScreen from './src/screens/QuranScreen';
+import ZekatScreen from './src/screens/ZekatScreen';
 import DiniGunlerScreen from './src/screens/DiniGunlerScreen';
 import HicriScreen from './src/screens/HicriScreen';
 import AboutScreen from './src/screens/AboutScreen';
@@ -41,7 +42,7 @@ const TABS = [
 ];
 
 const SUB_TITLES = {
-  bildirim: 'Ezan ve Bildirimler', namaz: 'Namaz Takibi', zikir: 'Zikirmatik', kible: 'Kıble Pusulası', esma: 'Esmaül Hüsna', dini: 'Dini Günler',
+  bildirim: 'Ezan ve Bildirimler', namaz: 'Namaz Takibi', zikir: 'Zikirmatik', kible: 'Kıble Pusulası', esma: 'Esmaül Hüsna', zekat: 'Zekât Hesaplama', dini: 'Dini Günler',
   hicri: 'Hicri Takvim', ayarlar: 'Ayarlar', hakkinda: 'Hakkında ve Gizlilik',
 };
 
@@ -206,6 +207,7 @@ export default function App() {
             zikir: <ZikirScreen vibZikir={vibZikir} />,
             kible: <QiblaScreen loc={loc} />,
             esma: <EsmaScreen />,
+            zekat: <ZekatScreen />,
             dini: <DiniGunlerScreen />,
             hicri: <HicriScreen />,
             hakkinda: <AboutScreen />,

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, Text, FlatList, Pressable, Modal, TextInput } from 'react-native';
+import { View, Text, FlatList, Pressable, Modal, TextInput, ScrollView, useWindowDimensions } from 'react-native';
 import { C, themed } from '../theme';
 import { trNow } from '../prayer';
 import { ymdNum } from '../hijri';
@@ -9,12 +9,35 @@ import { SURAH_TR, SURAH_AR, BISMILLAH, TOTAL_AYAH, RECITERS, audioUrl, quranDat
 
 import { hasQuranAudio, quranPlay, quranCmd, quranState } from '../../modules/hayya-ongoing';
 
-const DEF = { last: null, read: {}, hatims: 0, days: 30, dayKey: 0, dayN: 0, reciter: RECITERS[0].id, fs: 28, meal: true, view: 'ayet' };
+const DEF = { last: null, read: {}, hatims: 0, days: 30, dayKey: 0, dayN: 0, reciter: RECITERS[0].id, fs: 28, meal: true, view: 'ayet', speed: 1 };
 const DAY_CHOICES = [10, 30, 60, 90];
 
 const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
 const arNum = (n) => String(n).replace(/\d/g, (d) => AR_DIGITS[d]);
-const CHUNK = 10; // tam sayfa modunda bir parçadaki ayet sayısı
+const SPEEDS = [0.75, 1, 1.25, 1.5];
+const MAX_QUEUE = 700; // sure sonunda otomatik geçiş için bir seferde kuyruğa alınan en çok ayet
+
+/** Ayet sonu işareti: altın renkli halka içinde Arapça rakam */
+function Ring({ n, size = 30 }) {
+  return (
+    <View style={[s2.ring, { width: size, height: size, borderRadius: size / 2 }]}>
+      <Text style={[s2.ringT, { fontSize: size * 0.42 }]}>{arNum(n)}</Text>
+    </View>
+  );
+}
+
+/** Sayfa sınırları: yazı boyutu ve meal durumuna göre ekrana sığacak kadar ayet. Dönen: [[ayet…], …] */
+function paginate(items, fs, meal, avail) {
+  const perLine = Math.max(14, Math.floor(30 * (28 / fs)));
+  const pages = []; let cur = []; let h = 0;
+  for (const it of items) {
+    const cost = Math.ceil(it.t.length / perLine) * fs * 2 + (meal ? Math.ceil(it.m.length / 42) * 23 + 10 : 0);
+    if (cur.length && h + cost > avail) { pages.push(cur); cur = []; h = 0; }
+    cur.push(it); h += cost;
+  }
+  if (cur.length) pages.push(cur);
+  return pages;
+}
 
 function ViewToggle({ view, set }) {
   return (
@@ -49,42 +72,55 @@ export default function QuranScreen() {
   // ---- Ses (native QuranService: ekran kapalıyken de çalar) ----
   const [now, setNow] = useState(null); // { s, a } çalan ayet
   const [paused, setPaused] = useState(false);
-  const base = useRef(null); // { s, a, count }: kuyruğun başı
+  const base = useRef(null); // { list: [[sure, ayet], …] } kuyruk
   const listRef = useRef(null);
   const surahRef = useRef(null);
   surahRef.current = surah;
 
-  const playAyah = (s, a) => {
+  const playAyah = (s0, a0) => {
     if (!hasQuranAudio()) return;
-    const n = quranData().ar[s - 1].length;
-    const urls = []; const titles = [];
-    for (let i = a; i <= n; i++) { urls.push(audioUrl(stRef.current.reciter, s, i)); titles.push(`${SURAH_TR[s - 1]} Suresi · ${i}. ayet`); }
-    base.current = { s, a, count: urls.length };
-    quranPlay({ urls, titles, start: 0 });
-    setNow({ s, a }); setPaused(false);
+    const { ar } = quranData();
+    const urls = []; const titles = []; const list = [];
+    for (let ss = s0; ss <= 114 && list.length < MAX_QUEUE; ss++) {
+      for (let i = ss === s0 ? a0 : 1; i <= ar[ss - 1].length && list.length < MAX_QUEUE; i++) {
+        urls.push(audioUrl(stRef.current.reciter, ss, i));
+        titles.push(`${SURAH_TR[ss - 1]} Suresi · ${i}. ayet`);
+        list.push([ss, i]);
+      }
+    }
+    base.current = { list };
+    quranPlay({ urls, titles, start: 0, speed: stRef.current.speed || 1 });
+    setNow({ s: s0, a: a0 }); setPaused(false);
   };
   const seek = (d) => {
     const b = base.current; const st0 = quranState();
     if (!b || !st0) return;
-    quranCmd('SEEK', Math.max(0, Math.min(b.count - 1, st0.index + d)));
+    quranCmd('SEEK', Math.max(0, Math.min(b.list.length - 1, st0.index + d)));
   };
   const nextAyah = () => seek(1);
   const prevAyah = () => seek(-1);
   const togglePause = () => { quranCmd(paused ? 'RESUME' : 'PAUSE'); setPaused(!paused); };
   const stopAudio = () => { quranCmd('STOP'); base.current = null; setNow(null); setPaused(false); };
+  const cycleSpeed = () => {
+    const cur = stRef.current.speed || 1;
+    const nx = SPEEDS[(SPEEDS.indexOf(cur) + 1) % SPEEDS.length];
+    set({ speed: nx });
+    quranCmd('SPEED', Math.round(nx * 100));
+  };
 
-  // Çalan ayeti native taraftan oku (ekran açıkken)
+  // Çalan ayeti native taraftan oku (ekran açıkken); sure değişirse ekran da yeni sureye geçer
   useEffect(() => {
     if (!now) return undefined;
     const t = setInterval(() => {
       const b = base.current; const st0 = quranState();
       if (!b || !st0) return;
       if (!st0.active) { base.current = null; setNow(null); setPaused(false); return; }
-      const a = b.a + Math.max(0, st0.index);
+      const pos = b.list[Math.max(0, Math.min(b.list.length - 1, st0.index))];
       setPaused(!!st0.paused);
       setNow((cur) => {
-        if (cur && cur.s === b.s && cur.a === a) return cur;
-        return { s: b.s, a };
+        if (cur && cur.s === pos[0] && cur.a === pos[1]) return cur;
+        if (cur && cur.s !== pos[0] && surahRef.current === cur.s) setSurah(pos[0]);
+        return { s: pos[0], a: pos[1] };
       });
     }, 700);
     return () => clearInterval(t);
@@ -111,7 +147,7 @@ export default function QuranScreen() {
       <Reader
         s={surah} st={st} set={set} listRef={listRef} now={now} paused={paused}
         onBack={() => setSurah(null)} onPlay={playAyah} onMark={markRead}
-        onPrev={prevAyah} onNext={nextAyah} onToggle={togglePause} onStop={stopAudio}
+        onPrev={prevAyah} onNext={nextAyah} onToggle={togglePause} onStop={stopAudio} onSpeed={cycleSpeed}
       />
     );
   }
@@ -197,39 +233,53 @@ export default function QuranScreen() {
   );
 }
 
-function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPrev, onNext, onToggle, onStop }) {
+function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPrev, onNext, onToggle, onStop, onSpeed }) {
   const { ar, tr } = quranData();
-  const ayahs = ar[s - 1];
-  const items = ayahs.map((t, i) => ({ a: i + 1, t, m: tr[s - 1][i] }));
-  const chunks = [];
-  for (let i = 0; i < items.length; i += CHUNK) chunks.push({ k: i / CHUNK, list: items.slice(i, i + CHUNK) });
+  const items = ar[s - 1].map((t, i) => ({ a: i + 1, t, m: tr[s - 1][i] }));
   const readTo = st.read[s] || 0;
   const flow = st.view === 'sayfa';
-  const [sel, setSel] = useState(null); // tam sayfada dokunulan ayet
-  const lastChunk = useRef(-1);
-  useEffect(() => { lastChunk.current = -1; }, [flow]);
+  const { height } = useWindowDimensions();
+  const pages = flow ? paginate(items, st.fs, st.meal, Math.max(260, height - 400)) : [];
+  const [page, setPage] = useState(0);
+  const pageOf = (a) => Math.max(0, pages.findIndex((p) => p.some((x) => x.a === a)));
+  const lastIdx = useRef(-1);
+  const pageRef = useRef(null);
+  const cur = Math.min(page, Math.max(0, pages.length - 1));
 
+  // Açılışta kaldığın sayfa / ayet
   useEffect(() => {
     if (st.last && st.last.s === s && st.last.a > 1) {
-      const t = setTimeout(() => {
-        try { listRef.current && listRef.current.scrollToIndex({ index: flow ? Math.floor((st.last.a - 1) / CHUNK) : st.last.a - 1, viewPosition: 0.1, animated: false }); } catch (e) {}
-      }, 300);
-      return () => clearTimeout(t);
-    }
+      if (flow) setPage(pageOf(st.last.a));
+      else {
+        const t = setTimeout(() => { try { listRef.current && listRef.current.scrollToIndex({ index: st.last.a - 1, viewPosition: 0.1, animated: false }); } catch (e) {} }, 300);
+        return () => clearTimeout(t);
+      }
+    } else setPage(0);
     return undefined;
-  }, [flow]);
+  }, [flow, s]);
 
-  // Çalan ayet değişince ekranı kaydır (tam sayfada parça değişince)
+  // Çalan ayet değişince ekranı onunla götür (tam sayfada sayfa kendiliğinden döner)
   useEffect(() => {
     if (!now || now.s !== s) return;
-    const idx = flow ? Math.floor((now.a - 1) / CHUNK) : now.a - 1;
-    if (idx !== lastChunk.current) {
-      lastChunk.current = idx;
-      try { listRef.current && listRef.current.scrollToIndex({ index: idx, viewPosition: flow ? 0.05 : 0.2, animated: true }); } catch (e) {}
+    if (flow) {
+      const pg = pageOf(now.a);
+      if (pg !== lastIdx.current) { lastIdx.current = pg; setPage(pg); }
+    } else if (now.a - 1 !== lastIdx.current) {
+      lastIdx.current = now.a - 1;
+      try { listRef.current && listRef.current.scrollToIndex({ index: now.a - 1, viewPosition: 0.2, animated: true }); } catch (e) {}
     }
   }, [now, flow]);
+  useEffect(() => { lastIdx.current = -1; }, [flow, s]);
+  useEffect(() => { if (pageRef.current) { try { pageRef.current.scrollTo({ y: 0, animated: false }); } catch (e) {} } }, [cur]);
 
-  const bottomPad = now || sel ? 110 : 30;
+  const startFrom = () => {
+    if (flow && pages[cur]) onPlay(s, pages[cur][0].a);
+    else onPlay(s, st.last && st.last.s === s ? st.last.a : 1);
+  };
+  const markPage = () => { const p = pages[cur]; if (p) onMark(s, p[p.length - 1].a); };
+  const bism = s !== 1 && s !== 9 ? <Text style={[s2.bism, { fontSize: st.fs }]}>{BISMILLAH}</Text> : null;
+  const spd = (st.speed || 1) + 'x';
+
   return (
     <View style={{ flex: 1 }}>
       <View style={s2.head}>
@@ -241,48 +291,37 @@ function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPr
           <Pressable style={s2.fsBtn} onPress={() => set({ meal: !st.meal })}><Text style={s2.fsT}>{st.meal ? 'Meal ✓' : 'Meal'}</Text></Pressable>
         </View>
       </View>
-      <View style={{ paddingHorizontal: 14, paddingTop: 8 }}><ViewToggle view={st.view} set={(p) => { setSel(null); set(p); }} /></View>
+      <View style={{ paddingHorizontal: 14, paddingTop: 8 }}><ViewToggle view={st.view} set={set} /></View>
+
       {flow ? (
-        <FlatList
-          key="flow"
-          ref={listRef}
-          contentContainerStyle={[u.page, { paddingBottom: bottomPad }]}
-          data={chunks}
-          keyExtractor={(x) => String(x.k)}
-          onScrollToIndexFailed={() => {}}
-          ListHeaderComponent={s !== 1 && s !== 9 ? <Text style={[s2.bism, { fontSize: st.fs }]}>{BISMILLAH}</Text> : null}
-          renderItem={({ item }) => (
-            <View style={s2.page}>
-              <Text style={[s2.arFlow, { fontSize: st.fs, lineHeight: st.fs * 2 }]}>
-                {item.list.map((x) => {
-                  const on = now && now.s === s && now.a === x.a;
-                  const pick = sel === x.a;
-                  return (
-                    <Text key={x.a} onPress={() => setSel(pick ? null : x.a)} style={on ? s2.flowOn : pick ? s2.flowSel : null}>
-                      {x.t}{' ﴿' + arNum(x.a) + '﴾ '}
-                    </Text>
-                  );
-                })}
-              </Text>
-              {st.meal && (
-                <Text style={s2.mealFlow}>
-                  {item.list.map((x) => (
-                    <Text key={x.a}><Text style={s2.mealNo}>{x.a}. </Text>{x.m + ' '}</Text>
-                  ))}
+        <ScrollView ref={pageRef} contentContainerStyle={[u.page, { paddingBottom: 20 }]}>
+          {cur === 0 ? bism : null}
+          <Text style={[s2.arFlow, { fontSize: st.fs, lineHeight: st.fs * 2 }]}>
+            {(pages[cur] || []).map((x) => {
+              const on = now && now.s === s && now.a === x.a;
+              return (
+                <Text key={x.a} onPress={() => onPlay(s, x.a)} style={on ? s2.flowOn : null}>
+                  {x.t + ' '}<Ring n={x.a} size={Math.round(st.fs * 1.0)} />{' '}
                 </Text>
-              )}
-            </View>
+              );
+            })}
+          </Text>
+          {st.meal && (
+            <Text style={s2.mealFlow}>
+              {(pages[cur] || []).map((x) => (
+                <Text key={x.a}><Text style={s2.mealNo}>{x.a}. </Text>{x.m + ' '}</Text>
+              ))}
+            </Text>
           )}
-        />
+        </ScrollView>
       ) : (
         <FlatList
-          key="ayet"
           ref={listRef}
-          contentContainerStyle={[u.page, { paddingBottom: bottomPad }]}
+          contentContainerStyle={[u.page, { paddingBottom: 20 }]}
           data={items}
           keyExtractor={(x) => String(x.a)}
           onScrollToIndexFailed={() => {}}
-          ListHeaderComponent={s !== 1 && s !== 9 ? <Text style={[s2.bism, { fontSize: st.fs }]}>{BISMILLAH}</Text> : null}
+          ListHeaderComponent={bism}
           renderItem={({ item }) => {
             const on = now && now.s === s && now.a === item.a;
             const done = item.a <= readTo;
@@ -295,33 +334,40 @@ function Reader({ s, st, set, listRef, now, paused, onBack, onPlay, onMark, onPr
                     <Pressable style={[s2.act, done && s2.actOn]} onPress={() => onMark(s, item.a)}><Text style={[s2.actT, done && { color: '#fff' }]}>✓</Text></Pressable>
                   </View>
                 </View>
-                <Text style={[s2.arT, { fontSize: st.fs, lineHeight: st.fs * 1.9 }]}>{item.t}</Text>
+                <Text style={[s2.arT, { fontSize: st.fs, lineHeight: st.fs * 1.9 }]}>
+                  {item.t + ' '}<Ring n={item.a} size={Math.round(st.fs * 1.0)} />
+                </Text>
                 {st.meal && <Text style={s2.mealT}>{item.m}</Text>}
               </View>
             );
           }}
         />
       )}
-      {flow && sel && !now && (
-        <View style={s2.player}>
-          <Text style={s2.pT} numberOfLines={1}>{sel}. ayet</Text>
-          <View style={s2.pBtns}>
-            <Pressable onPress={() => { onPlay(s, sel); setSel(null); }} hitSlop={8}><Text style={s2.pB}>▶</Text></Pressable>
-            <Pressable onPress={() => { onMark(s, sel); setSel(null); }} hitSlop={8}><Text style={s2.pB}>✓</Text></Pressable>
+
+      {/* Sabit alt çubuk: sayfa gezinme (tam sayfada) ve ses her zaman görünür */}
+      <View style={s2.bar}>
+        {flow && (
+          <View style={s2.pgRow}>
+            <Pressable onPress={() => setPage(Math.max(0, cur - 1))} disabled={cur === 0} style={[s2.pgB, cur === 0 && { opacity: 0.35 }]}><Text style={s2.pgT}>‹ Önceki</Text></Pressable>
+            <Pressable onPress={markPage} hitSlop={6}><Text style={s2.pgInfo}>Sayfa {cur + 1} / {Math.max(1, pages.length)}  ✓</Text></Pressable>
+            <Pressable onPress={() => setPage(Math.min(pages.length - 1, cur + 1))} disabled={cur >= pages.length - 1} style={[s2.pgB, cur >= pages.length - 1 && { opacity: 0.35 }]}><Text style={s2.pgT}>Sonraki ›</Text></Pressable>
           </View>
+        )}
+        <View style={s2.audRow}>
+          {now ? (
+            <>
+              <Text style={s2.pT} numberOfLines={1}>{SURAH_TR[now.s - 1]} · {now.a}</Text>
+              <Pressable onPress={onPrev} hitSlop={8}><Text style={s2.pB}>⏮</Text></Pressable>
+              <Pressable onPress={onToggle} hitSlop={8}><Text style={s2.pB}>{paused ? '▶' : '⏸'}</Text></Pressable>
+              <Pressable onPress={onNext} hitSlop={8}><Text style={s2.pB}>⏭</Text></Pressable>
+              <Pressable onPress={onStop} hitSlop={8}><Text style={s2.pB}>■</Text></Pressable>
+            </>
+          ) : (
+            <Pressable style={s2.listen} onPress={startFrom}><Text style={s2.listenT}>▶ Dinle</Text></Pressable>
+          )}
+          <Pressable style={s2.spd} onPress={onSpeed} hitSlop={6}><Text style={s2.spdT}>{spd}</Text></Pressable>
         </View>
-      )}
-      {now && (
-        <View style={s2.player}>
-          <Text style={s2.pT} numberOfLines={1}>{SURAH_TR[now.s - 1]} · {now.a}. ayet</Text>
-          <View style={s2.pBtns}>
-            <Pressable onPress={onPrev} hitSlop={8}><Text style={s2.pB}>⏮</Text></Pressable>
-            <Pressable onPress={onToggle} hitSlop={8}><Text style={s2.pB}>{paused ? '▶' : '⏸'}</Text></Pressable>
-            <Pressable onPress={onNext} hitSlop={8}><Text style={s2.pB}>⏭</Text></Pressable>
-            <Pressable onPress={onStop} hitSlop={8}><Text style={s2.pB}>■</Text></Pressable>
-          </View>
-        </View>
-      )}
+      </View>
     </View>
   );
 }
@@ -380,5 +426,17 @@ const s2 = themed(() => ({
   flowSel: { backgroundColor: C.okSoft },
   mealFlow: { color: C.muted, fontSize: 15, lineHeight: 23, marginTop: 10, marginBottom: 14 },
   mealNo: { color: C.green, fontWeight: '800' },
+  ring: { borderWidth: 2, borderColor: C.gold, backgroundColor: C.goldSoft, alignItems: 'center', justifyContent: 'center' },
+  ringT: { color: C.goldInk, fontWeight: '800' },
+  bar: { borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.card, paddingHorizontal: 12, paddingVertical: 8 },
+  pgRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  pgB: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: C.line },
+  pgT: { color: C.green, fontWeight: '800' },
+  pgInfo: { color: C.ink, fontWeight: '700' },
+  audRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  listen: { flex: 1, backgroundColor: C.green, borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
+  listenT: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  spd: { borderWidth: 1, borderColor: C.green, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
+  spdT: { color: C.green, fontWeight: '800' },
   pB: { color: C.green, fontSize: 22, fontWeight: '800' },
 }));
