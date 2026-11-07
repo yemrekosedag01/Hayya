@@ -3,35 +3,43 @@ import { ScrollView, View, Text, TextInput } from 'react-native';
 import { C, themed } from '../theme';
 import { load, save } from '../storage';
 import { Card, u } from './ui';
+import { fetchSheet } from '../content';
 
 const NISAB_ALTIN_GR = 80.18; // 20 miskal altın (Diyanet esası)
 const ORAN = 0.025; // kırkta bir
 
 const FIELDS = [
-  { k: 'altinFiyat', label: 'Gram altın fiyatı (₺)', hint: 'Güncel fiyatı yazın', req: true },
   { k: 'nakit', label: 'Nakit ve banka hesapları (₺)' },
-  { k: 'altin', label: 'Altın (gram)' },
-  { k: 'gumus', label: 'Gümüş (gram)' },
-  { k: 'gumusFiyat', label: 'Gram gümüş fiyatı (₺)', hint: 'Gümüşünüz varsa' },
-  { k: 'doviz', label: 'Döviz ve diğer varlıklar (₺ karşılığı)' },
-  { k: 'ticaret', label: 'Ticaret malı ve stok (₺)' },
+  { k: 'altin', label: 'Sahip olduğunuz altın (gram)' },
+  { k: 'gumus', label: 'Sahip olduğunuz gümüş (gram)' },
+  { k: 'dolar', label: 'Sahip olduğunuz dolar ($)' },
+  { k: 'euro', label: 'Sahip olduğunuz euro (€)' },
+  { k: 'doviz', label: 'Varsa başka dövizlerinizin TL karşılığı (₺)' },
+  { k: 'ticaret', label: 'Ticaret malı ve stok, TL karşılığı (₺)' },
   { k: 'alacak', label: 'Tahsili kesin alacaklar (₺)' },
-  { k: 'borc', label: 'Borçlar (bu yıl ödenecek, ₺)' },
+  { k: 'borc', label: 'Borçlar, bu yıl ödenecek (₺)' },
 ];
-
-const num = (v) => {
-  const n = parseFloat(String(v || '').replace(/\./g, '').replace(',', '.'));
-  return Number.isFinite(n) && n > 0 ? n : 0;
-};
-const tl = (n) => Math.round(n).toLocaleString('tr-TR') + ' ₺';
 
 export default function ZekatScreen() {
   const [v, setV] = useState({});
-  useEffect(() => { load('zekat', {}).then(setV); }, []);
+  const [pr, setPr] = useState(null); // { altin, gumus, usd, eur, tarih }
+  const [prErr, setPrErr] = useState(false);
+  useEffect(() => {
+    load('zekat', {}).then(setV);
+    load('zekatFiyat', null).then((c) => { if (c) setPr(c); });
+    fetchSheet('Fiyatlar').then((rows) => {
+      const get = (name) => rows.find((r) => String(r['kalem'] || '').toLocaleLowerCase('tr').startsWith(name));
+      const val = (r) => (r ? num(r['değer']) : 0);
+      const altin = get('gram altın'); const gumus = get('gram gümüş');
+      const f = { altin: val(altin), gumus: val(gumus), usd: val(get('dolar')), eur: val(get('euro')), tarih: altin ? altin['güncelleme'] : '' };
+      if (f.altin > 0) { setPr(f); setPrErr(false); save('zekatFiyat', f); } else setPrErr(true);
+    }).catch(() => setPrErr(true));
+  }, []);
   const set = (k, t) => { const n = { ...v, [k]: t }; setV(n); save('zekat', n); };
 
-  const altinFiyat = num(v.altinFiyat);
-  const varlik = num(v.nakit) + num(v.altin) * altinFiyat + num(v.gumus) * num(v.gumusFiyat)
+  const altinFiyat = pr ? pr.altin : num(v.altinFiyat);
+  const varlik = num(v.nakit) + num(v.altin) * altinFiyat + num(v.gumus) * (pr ? pr.gumus : 0)
+    + num(v.dolar) * (pr ? pr.usd : 0) + num(v.euro) * (pr ? pr.eur : 0)
     + num(v.doviz) + num(v.ticaret) + num(v.alacak);
   const net = varlik - num(v.borc);
   const nisab = NISAB_ALTIN_GR * altinFiyat;
@@ -40,7 +48,27 @@ export default function ZekatScreen() {
 
   return (
     <ScrollView contentContainerStyle={u.page} keyboardShouldPersistTaps="handled">
-      <Text style={[u.tip, { marginTop: 0 }]}>Zekât, nisap miktarı mala sahip olup üzerinden bir yıl geçen Müslümana farzdır. Oran kırkta birdir (%2,5). Güncel altın fiyatını girip varlıklarınızı yazın.</Text>
+      <Text style={[u.tip, { marginTop: 0 }]}>Zekât, nisap miktarı mala sahip olup üzerinden bir yıl geçen Müslümana farzdır. Oran kırkta birdir (%2,5). Sahip olduklarınızı yazın, güncel fiyatlarla hesaplanır.</Text>
+      <Card title="Güncel fiyatlar">
+        {pr ? (
+          <View>
+            <Line a="Gram altın" b={pr.altin.toLocaleString('tr-TR') + ' ₺'} />
+            <Line a="Gram gümüş" b={pr.gumus.toLocaleString('tr-TR') + ' ₺'} />
+            <Line a="Dolar" b={pr.usd.toLocaleString('tr-TR') + ' ₺'} />
+            <Line a="Euro" b={pr.eur.toLocaleString('tr-TR') + ' ₺'} />
+            {pr.tarih ? <Text style={u.src}>Altın ve gümüş fiyatı {pr.tarih} tarihinde güncellendi</Text> : null}
+          </View>
+        ) : (
+          <View>
+            <Text style={u.src}>{prErr ? 'Güncel fiyatlara ulaşılamadı. Gram altın fiyatını kendiniz yazın.' : 'Fiyatlar yükleniyor…'}</Text>
+            {prErr && (
+              <TextInput value={v.altinFiyat || ''} onChangeText={(t) => set('altinFiyat', t)} keyboardType="decimal-pad"
+                placeholder="Gram altın (₺)" placeholderTextColor={C.muted} style={[s.inp, { marginTop: 8 }]} />
+            )}
+          </View>
+        )}
+      </Card>
+
       <Card>
         {FIELDS.map((f) => (
           <View key={f.k} style={s.row}>
