@@ -7,6 +7,7 @@ import { Card, u } from './ui';
 import { pickForSlot } from '../content';
 import { hijriText, ymdNum, toHijri } from '../hijri';
 import RadioCard from './RadioCard';
+import QuranMini from './QuranMini';
 import { toggle, dayKey } from '../namaz';
 import ShareCard from './ShareCard';
 import { numToYmd } from '../hijri';
@@ -92,6 +93,8 @@ export default function HomeScreen({ loc, content, go, radio, namaz, setNamaz })
       </View>
 
       <Text style={s.tickHint}>Kıldığınız namazın vaktine dokunarak işaretleyin</Text>
+
+      <QuranMini />
 
       {ayet && (
         <Card title="📖 Vaktin Ayeti">

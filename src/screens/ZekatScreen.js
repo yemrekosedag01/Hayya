@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, Text, TextInput } from 'react-native';
+import { ScrollView, View, Text, TextInput, Pressable, Alert } from 'react-native';
 import { C, themed } from '../theme';
 import { load, save } from '../storage';
 import { Card, u } from './ui';
@@ -45,6 +45,10 @@ export default function ZekatScreen() {
       if (f.altin > 0) { setPr(f); setPrErr(false); save('zekatFiyat', f); } else setPrErr(true);
     }).catch(() => setPrErr(true));
   }, []);
+  const sifirla = () => Alert.alert('Tüm kutular silinsin mi?', 'Yazdığınız bütün miktarlar temizlenir.', [
+    { text: 'Vazgeç', style: 'cancel' },
+    { text: 'Sıfırla', style: 'destructive', onPress: () => { const n = v.altinFiyat ? { altinFiyat: v.altinFiyat } : {}; setV(n); save('zekat', n); } },
+  ]);
   const set = (k, t) => { const n = { ...v, [k]: t }; setV(n); save('zekat', n); };
 
   const altinFiyat = pr ? pr.altin : num(v.altinFiyat);
@@ -93,6 +97,9 @@ export default function ZekatScreen() {
             />
           </View>
         ))}
+        <Pressable onPress={sifirla} style={s.reset} accessibilityLabel="Tüm kutuları sıfırla">
+          <Text style={s.resetT}>🗑 Tüm kutuları sıfırla</Text>
+        </Pressable>
       </Card>
 
       <Card title="Sonuç">
@@ -133,6 +140,8 @@ function Line({ a, b, bold }) {
 
 const s = themed(() => ({
   row: { marginBottom: 12 },
+  reset: { alignSelf: 'center', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: C.line, marginTop: 4 },
+  resetT: { color: C.muted, fontWeight: '800', fontSize: 14 },
   lbl: { color: C.ink, fontWeight: '700', fontSize: 14, marginBottom: 6 },
   inp: { borderWidth: 1, borderColor: C.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16, color: C.ink, backgroundColor: C.bg },
   line: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },

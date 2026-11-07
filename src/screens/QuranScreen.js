@@ -7,6 +7,7 @@ import { load, save } from '../storage';
 import { u } from './ui';
 import { SURAH_TR, SURAH_AR, BISMILLAH, TOTAL_AYAH, RECITERS, audioUrl, quranData, pageStarts } from '../quran';
 
+import { getOwner, setOwner } from '../quran/owner';
 import { hasQuranAudio, quranPlay, quranCmd, quranState } from '../../modules/hayya-ongoing';
 
 const DEF = { last: null, read: {}, hatims: 0, days: 30, dayKey: 0, dayN: 0, reciter: RECITERS[0].id, fs: 28, meal: true, view: 'ayet', speed: 1 };
@@ -76,6 +77,7 @@ export default function QuranScreen() {
       }
     }
     base.current = { list };
+    setOwner('quran');
     quranPlay({ urls, titles, start: 0, speed: stRef.current.speed || 1 });
     setNow({ s: s0, a: a0 }); setPaused(false);
   };
@@ -101,7 +103,7 @@ export default function QuranScreen() {
     const t = setInterval(() => {
       const b = base.current; const st0 = quranState();
       if (!b || !st0) return;
-      if (!st0.active) { base.current = null; setNow(null); setPaused(false); return; }
+      if (getOwner() !== 'quran' || !st0.active) { base.current = null; setNow(null); setPaused(false); return; }
       const pos = b.list[Math.max(0, Math.min(b.list.length - 1, st0.index))];
       setPaused(!!st0.paused);
       setNow((cur) => {
