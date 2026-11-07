@@ -8,6 +8,16 @@ import { fetchSheet } from '../content';
 const NISAB_ALTIN_GR = 80.18; // 20 miskal altın (Diyanet esası)
 const ORAN = 0.025; // kırkta bir
 
+// "1.234,56", "1234,5" ve "1234.5" biçimlerini sayıya çevirir
+function num(x) {
+  let t = String(x == null ? '' : x).replace(/[^\d.,-]/g, '');
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+  else if ((t.match(/\./g) || []).length > 1) t = t.replace(/\./g, '');
+  const n = parseFloat(t);
+  return Number.isFinite(n) ? n : 0;
+}
+const tl = (n) => (Number.isFinite(n) ? n : 0).toLocaleString('tr-TR', { maximumFractionDigits: 2, minimumFractionDigits: 2 }) + ' ₺';
+
 const FIELDS = [
   { k: 'nakit', label: 'Nakit ve banka hesapları (₺)' },
   { k: 'altin', label: 'Sahip olduğunuz altın (gram)' },
@@ -52,7 +62,7 @@ export default function ZekatScreen() {
       <Card title="Güncel fiyatlar">
         {pr ? (
           <View>
-            <Line a="Gram altın" b={pr.altin.toLocaleString('tr-TR') + ' ₺'} />
+            <Line a="Gram altın" b={Number(pr.altin).toLocaleString('tr-TR') + ' ₺'} />
             <Line a="Gram gümüş" b={pr.gumus.toLocaleString('tr-TR') + ' ₺'} />
             <Line a="Dolar" b={pr.usd.toLocaleString('tr-TR') + ' ₺'} />
             <Line a="Euro" b={pr.eur.toLocaleString('tr-TR') + ' ₺'} />
