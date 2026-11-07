@@ -312,13 +312,13 @@ function Reader({ s, jump, onSurah, reciterName, onPickReciter, st, set, listRef
       {flow ? (
         <ScrollView ref={pageRef} contentContainerStyle={[u.page, { paddingBottom: 20 }]}>
           {pages[cur] && pages[cur].list[0].a === 1 ? bism : null}
-          <Text style={[u.src, { textAlign: 'center', marginBottom: 6 }]}>Bir ayete çift dokunursan oradan dinlemeye başlar</Text>
+          <Text style={[u.src, { textAlign: 'center', marginBottom: 6 }]}>Bir ayete çift dokunursan (veya basılı tutarsan) oradan dinlemeye başlar</Text>
           <Text style={[s2.arFlow, { fontSize: st.fs, lineHeight: st.fs * 2 }]}>
             {(pages[cur] ? pages[cur].list : []).map((x) => {
               const on = now && now.s === s && now.a === x.a;
               return (
-                <Text key={x.a} onPress={() => tapAyah(x.a)} style={on ? s2.flowOn : null}>
-                  {x.t + ' '}<Ring n={x.a} size={Math.round(st.fs * 1.0)} />{' '}
+                <Text key={x.a} onPress={() => tapAyah(x.a)} onLongPress={() => onPlay(s, x.a)} suppressHighlighting style={on ? s2.flowOn : null}>
+                  {x.t + ' '}<Text style={[s2.endMark, { fontSize: st.fs * 1.15 }]}>{'\u06DD' + arNum(x.a)}</Text>{' '}
                 </Text>
               );
             })}
@@ -452,6 +452,7 @@ const s2 = themed(() => ({
   flowSel: { backgroundColor: C.okSoft },
   mealFlow: { color: C.muted, fontSize: 15, lineHeight: 23, marginTop: 10, marginBottom: 14 },
   mealNo: { color: C.green, fontWeight: '800' },
+  endMark: { color: C.gold, fontWeight: '800' },
   ring: { borderWidth: 2, borderColor: C.gold, backgroundColor: C.goldSoft, alignItems: 'center', justifyContent: 'center' },
   ringT: { color: C.goldInk, fontWeight: '800' },
   bar: { borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.card, paddingHorizontal: 12, paddingVertical: 8 },
