@@ -112,11 +112,11 @@ export default function QuranMini() {
       <View style={s.pickRow}>
         <Pressable style={s.pick} onPress={() => setPickS(true)}>
           <Text style={s.pickL}>Sure</Text>
-          <Text style={s.pickV} numberOfLines={1}>{cfg.s ? SURAH_TR[cfg.s - 1] : 'Rastgele'} ▾</Text>
+          <Text style={s.pickV} numberOfLines={1}>{cfg.s ? SURAH_TR[cfg.s - 1] : 'Seçiniz'} ▾</Text>
         </Pressable>
         <Pressable style={[s.pick, !cfg.s && { opacity: 0.4 }]} disabled={!cfg.s} onPress={() => setPickA(true)}>
           <Text style={s.pickL}>Ayet</Text>
-          <Text style={s.pickV}>{cfg.s ? (cfg.a || 1) : '—'} ▾</Text>
+          <Text style={s.pickV}>{cfg.s ? (cfg.a || 1) : 'Seçiniz'} ▾</Text>
         </Pressable>
       </View>
       <View style={s.pickRow}>
@@ -169,7 +169,7 @@ export default function QuranMini() {
               renderItem={({ item }) => (
                 <Pressable style={[s.item, cfg.s === (item || null) && s.itemOn]}
                   onPress={() => { setPickS(false); update({ s: item || null, a: null }, true); }}>
-                  <Text style={s.itemT}>{item ? `${item}. ${SURAH_TR[item - 1]}` : 'Rastgele (seçim yok)'}</Text>
+                  <Text style={s.itemT}>{item ? `${item}. ${SURAH_TR[item - 1]}` : 'Seçimi kaldır (rastgele ayet)'}</Text>
                 </Pressable>
               )}
             />
