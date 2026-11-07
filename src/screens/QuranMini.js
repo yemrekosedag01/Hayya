@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Modal, FlatList, ScrollView } from 'react-native';
+import { View, Text, Pressable, Modal, FlatList } from 'react-native';
 import { C, themed } from '../theme';
 import { load, save } from '../storage';
 import { u } from './ui';
@@ -41,7 +41,8 @@ function buildList(s0, a0, mode) {
 
 export default function QuranMini() {
   const [cfg, setCfg] = useState(DEF);
-  const [open, setOpen] = useState(false);
+  const [pickR, setPickR] = useState(false);
+  const [pickM, setPickM] = useState(false);
   const [pickS, setPickS] = useState(false);
   const [pickA, setPickA] = useState(false);
   const [now, setNow] = useState(null); // { s, a }
@@ -93,53 +94,69 @@ export default function QuranMini() {
 
   const rec = RECITERS.find((r) => r.id === cfg.reciter) || RECITERS[0];
   const { ar } = quranData();
-  const title = on ? `${SURAH_TR[now.s - 1]} · ${now.a}. ayet`
-    : cfg.s ? `${SURAH_TR[cfg.s - 1]}${cfg.a ? ' · ' + cfg.a + '. ayet' : ''}` : 'Rastgele bir ayetten başlar';
   const ayCount = cfg.s ? ar[cfg.s - 1].length : 0;
+  const modeL = (MODES.find((m) => m[0] === cfg.mode) || MODES[0])[1];
 
   return (
     <View style={[u.card, s.card]}>
       <View style={s.head}>
-        <Pressable style={{ flex: 1 }} onPress={() => setOpen(!open)} accessibilityLabel="Kur'an dinleme ayarları">
-          <Text style={u.cardTitle}>🎧 Kur{'’'}an Dinle  {open ? '▴' : '▾'}</Text>
-          <Text style={s.title} numberOfLines={1}>{title}</Text>
-          <Text style={u.src} numberOfLines={1}>{rec.name}</Text>
-        </Pressable>
+        <View style={{ flex: 1 }}>
+          <Text style={s.h}>🎧 Kur{'’'}an Dinle</Text>
+          {on ? <Text style={s.now} numberOfLines={1}>{SURAH_TR[now.s - 1]} · {now.a}. ayet</Text> : null}
+        </View>
         <Pressable onPress={() => (on ? stop() : start(null))} style={[s.btn, on && s.btnOn]} accessibilityLabel={on ? 'Durdur' : 'Başlat'}>
           <Text style={s.btnT}>{on ? '■' : '▶'}</Text>
         </Pressable>
       </View>
 
-      {open && (
-        <View style={{ marginTop: 12 }}>
-          <View style={s.pickRow}>
-            <Pressable style={s.pick} onPress={() => setPickS(true)}>
-              <Text style={s.pickL}>Sure</Text>
-              <Text style={s.pickV} numberOfLines={1}>{cfg.s ? SURAH_TR[cfg.s - 1] : 'Rastgele'}</Text>
-            </Pressable>
-            <Pressable style={[s.pick, !cfg.s && { opacity: 0.4 }]} disabled={!cfg.s} onPress={() => setPickA(true)}>
-              <Text style={s.pickL}>Ayet</Text>
-              <Text style={s.pickV}>{cfg.s ? (cfg.a || 1) : '—'}</Text>
-            </Pressable>
-          </View>
-          <Text style={s.lbl}>Okuyucu</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+      <View style={s.pickRow}>
+        <Pressable style={s.pick} onPress={() => setPickS(true)}>
+          <Text style={s.pickL}>Sure</Text>
+          <Text style={s.pickV} numberOfLines={1}>{cfg.s ? SURAH_TR[cfg.s - 1] : 'Rastgele'} ▾</Text>
+        </Pressable>
+        <Pressable style={[s.pick, !cfg.s && { opacity: 0.4 }]} disabled={!cfg.s} onPress={() => setPickA(true)}>
+          <Text style={s.pickL}>Ayet</Text>
+          <Text style={s.pickV}>{cfg.s ? (cfg.a || 1) : '—'} ▾</Text>
+        </Pressable>
+      </View>
+      <View style={s.pickRow}>
+        <Pressable style={s.pick} onPress={() => setPickR(true)}>
+          <Text style={s.pickL}>Okuyucu</Text>
+          <Text style={s.pickV} numberOfLines={1}>{rec.name} ▾</Text>
+        </Pressable>
+        <Pressable style={s.pick} onPress={() => setPickM(true)}>
+          <Text style={s.pickL}>Çalma biçimi</Text>
+          <Text style={s.pickV} numberOfLines={1}>{modeL} ▾</Text>
+        </Pressable>
+      </View>
+
+      <Modal visible={pickR} transparent animationType="fade" onRequestClose={() => setPickR(false)}>
+        <Pressable style={s.back} onPress={() => setPickR(false)}>
+          <View style={s.sheet}>
+            <Text style={s.sheetT}>Okuyucu seç</Text>
             {RECITERS.map((r) => (
-              <Pressable key={r.id} onPress={() => update({ reciter: r.id }, true)} style={[s.chip, cfg.reciter === r.id && s.chipOn]}>
-                <Text style={[s.chipT, cfg.reciter === r.id && s.chipTOn]}>{r.name}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-          <Text style={s.lbl}>Çalma biçimi</Text>
-          <View style={s.modes}>
-            {MODES.map(([k, l]) => (
-              <Pressable key={k} onPress={() => update({ mode: k }, true)} style={[s.mode, cfg.mode === k && s.chipOn]}>
-                <Text style={[s.chipT, cfg.mode === k && s.chipTOn]}>{l}</Text>
+              <Pressable key={r.id} style={[s.item, cfg.reciter === r.id && s.itemOn]}
+                onPress={() => { setPickR(false); update({ reciter: r.id }, true); }}>
+                <Text style={s.itemT}>{r.name}</Text>
               </Pressable>
             ))}
           </View>
-        </View>
-      )}
+        </Pressable>
+      </Modal>
+
+      <Modal visible={pickM} transparent animationType="fade" onRequestClose={() => setPickM(false)}>
+        <Pressable style={s.back} onPress={() => setPickM(false)}>
+          <View style={s.sheet}>
+            <Text style={s.sheetT}>Çalma biçimi</Text>
+            {MODES.map(([k, l]) => (
+              <Pressable key={k} style={[s.item, cfg.mode === k && s.itemOn]}
+                onPress={() => { setPickM(false); update({ mode: k }, true); }}>
+                <Text style={s.itemT}>{l}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
 
       <Modal visible={pickS} transparent animationType="fade" onRequestClose={() => setPickS(false)}>
         <Pressable style={s.back} onPress={() => setPickS(false)}>
@@ -187,11 +204,12 @@ export default function QuranMini() {
 const s = themed(() => ({
   card: { borderColor: C.gold },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  title: { fontSize: 17, fontWeight: '900', color: C.green, marginTop: 3 },
+  h: { fontSize: 22, fontWeight: '900', color: C.green },
+  now: { fontSize: 15, fontWeight: '800', color: C.goldInk, marginTop: 2 },
   btn: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
   btnOn: { backgroundColor: C.bad },
   btnT: { color: '#fff', fontSize: 19, fontWeight: '900', marginLeft: 2 },
-  pickRow: { flexDirection: 'row', gap: 10 },
+  pickRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
   pick: { flex: 1, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 14, paddingVertical: 8, paddingHorizontal: 12 },
   pickL: { fontSize: 11, fontWeight: '800', color: C.muted },
   pickV: { fontSize: 16, fontWeight: '900', color: C.ink, marginTop: 1 },

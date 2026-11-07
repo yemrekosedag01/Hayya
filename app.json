@@ -14,7 +14,7 @@
     },
     "android": {
       "package": "com.kosedag.hayya",
-      "versionCode": 11,
+      "versionCode": 12,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1F5A4A"
