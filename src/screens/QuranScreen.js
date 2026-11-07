@@ -251,6 +251,13 @@ function Reader({ s, jump, onSurah, reciterName, onPickReciter, st, set, listRef
   const [page, setPage] = useState(0);
   const pageOf = (a) => Math.max(0, pages.findIndex((p) => p.list.some((x) => x.a === a)));
   const lastIdx = useRef(-1);
+  const lastTap = useRef({ a: 0, t: 0 });
+  // Tam sayfada ayete çift dokunma: oradan dinlemeye başlar
+  const tapAyah = (a) => {
+    const t = Date.now();
+    if (lastTap.current.a === a && t - lastTap.current.t < 400) { lastTap.current = { a: 0, t: 0 }; onPlay(s, a); }
+    else lastTap.current = { a, t };
+  };
   const pageRef = useRef(null);
   const cur = Math.min(page, Math.max(0, pages.length - 1));
 
@@ -305,11 +312,12 @@ function Reader({ s, jump, onSurah, reciterName, onPickReciter, st, set, listRef
       {flow ? (
         <ScrollView ref={pageRef} contentContainerStyle={[u.page, { paddingBottom: 20 }]}>
           {pages[cur] && pages[cur].list[0].a === 1 ? bism : null}
+          <Text style={[u.src, { textAlign: 'center', marginBottom: 6 }]}>Bir ayete çift dokunursan oradan dinlemeye başlar</Text>
           <Text style={[s2.arFlow, { fontSize: st.fs, lineHeight: st.fs * 2 }]}>
             {(pages[cur] ? pages[cur].list : []).map((x) => {
               const on = now && now.s === s && now.a === x.a;
               return (
-                <Text key={x.a} onPress={() => onPlay(s, x.a)} style={on ? s2.flowOn : null}>
+                <Text key={x.a} onPress={() => tapAyah(x.a)} style={on ? s2.flowOn : null}>
                   {x.t + ' '}<Ring n={x.a} size={Math.round(st.fs * 1.0)} />{' '}
                 </Text>
               );
